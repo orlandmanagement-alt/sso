@@ -1,0 +1,9 @@
+[SUMMARY]
+functions/api/auth/sessions.js.exists: True
+functions/api/auth/sessions.js.size_ok: True
+
+functions/api/auth/revoke_session.js.exists: True
+functions/api/auth/revoke_session.js.size_ok: True
+
+functions/api/auth/resolve_redirect.js.exists: True
+functions/api/auth/resolve_redirect.js.size_ok: True

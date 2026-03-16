@@ -1,0 +1,51 @@
+[SUMMARY]
+api_ok_count: 13
+api_total: 13
+helper_ok_count: 8
+helper_total: 8
+migration_ok_count: 3
+migration_total: 3
+
+[API_FILES]
+- OK | functions/api/auth/request_otp.js
+- OK | functions/api/auth/verify_otp.js
+- OK | functions/api/auth/me.js
+- OK | functions/api/auth/refresh.js
+- OK | functions/api/auth/logout.js
+- OK | functions/api/auth/logout_all.js
+- OK | functions/api/auth/sessions.js
+- OK | functions/api/auth/revoke_session.js
+- OK | functions/api/auth/resolve_redirect.js
+- OK | functions/api/auth/step_up_request.js
+- OK | functions/api/auth/step_up_verify.js
+- OK | functions/api/auth/verify_phone.js
+- OK | functions/api/auth/exchange.js
+
+[HELPER_FILES]
+- OK | functions/_core/auth.js
+- OK | functions/_core/otp_providers.js
+- OK | functions/api/auth/_helper/auth_queries.js
+- OK | functions/api/auth/_helper/auth_service.js
+- OK | functions/api/auth/_helper/auth_validator.js
+- OK | functions/api/auth/_helper/auth_session.js
+- OK | functions/api/auth/_helper/auth_stepup.js
+- OK | functions/api/auth/_helper/auth_redirect.js
+
+[MIGRATION_FILES]
+- OK | database/migrations/012_sso_hardening.sql
+- OK | database/migrations/013_sso_otp_providers.sql
+- OK | database/migrations/014_sso_stepup_hardening.sql
+
+[MANUAL_FLOW]
+1. POST /functions/api/auth/request_otp
+2. POST /functions/api/auth/verify_otp
+3. GET  /functions/api/auth/me
+4. GET  /functions/api/auth/sessions
+5. POST /functions/api/auth/revoke_session
+6. POST /functions/api/auth/step_up_request
+7. POST /functions/api/auth/step_up_verify
+8. POST /functions/api/auth/verify_phone
+9. POST /functions/api/auth/exchange
+10. GET /functions/api/auth/resolve_redirect
+11. POST /functions/api/auth/logout
+12. POST /functions/api/auth/logout_all

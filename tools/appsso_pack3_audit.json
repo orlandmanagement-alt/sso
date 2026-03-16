@@ -1,0 +1,14 @@
+{
+  "functions/api/auth/sessions.js": {
+    "exists": true,
+    "size_ok": true
+  },
+  "functions/api/auth/revoke_session.js": {
+    "exists": true,
+    "size_ok": true
+  },
+  "functions/api/auth/resolve_redirect.js": {
+    "exists": true,
+    "size_ok": true
+  }
+}

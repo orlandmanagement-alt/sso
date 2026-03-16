@@ -1,11 +1,9 @@
 import { jsonOk, jsonUnauthorized } from "../../_core/response.js";
-import { parseCookies, getSessionCookieName } from "./_helper/auth_session.js";
-import { getSessionRecord } from "./_helper/auth_service.js";
+import { requireSession } from "../../_core/auth.js";
 
 export async function onRequestPost({ request, env }){
-  const auth = await getSessionRecord(env, request, parseCookies, getSessionCookieName);
-
-  if(!auth){
+  const auth = await requireSession(env, request);
+  if(!auth.ok){
     return jsonUnauthorized("session_not_found");
   }
 
@@ -15,9 +13,8 @@ export async function onRequestPost({ request, env }){
     roles: auth.roles,
     session: {
       id: auth.session.id,
-      status: auth.session.status,
       expires_at: auth.session.expires_at,
-      created_at: auth.session.created_at
+      last_seen_at: auth.session.last_seen_at || null
     }
   });
 }

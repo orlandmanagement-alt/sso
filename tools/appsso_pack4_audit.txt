@@ -1,0 +1,25 @@
+[SUMMARY]
+functions/api/auth/verify_phone.js.exists: True
+functions/api/auth/verify_phone.js.size_ok: True
+
+functions/api/auth/exchange.js.exists: True
+functions/api/auth/exchange.js.size_ok: True
+
+functions/api/auth/refresh.js.exists: True
+functions/api/auth/refresh.js.size_ok: True
+
+functions/api/auth/verify_otp.js.exists: True
+functions/api/auth/verify_otp.js.size_ok: True
+
+[NEXT_SMOKE_TEST]
+1. POST /functions/api/auth/request_otp
+2. POST /functions/api/auth/verify_otp
+3. GET  /functions/api/auth/me
+4. GET  /functions/api/auth/sessions
+5. POST /functions/api/auth/revoke_session
+6. POST /functions/api/auth/step_up_request
+7. POST /functions/api/auth/step_up_verify
+8. POST /functions/api/auth/verify_phone
+9. POST /functions/api/auth/exchange
+10. POST /functions/api/auth/logout
+11. POST /functions/api/auth/logout_all
