@@ -16,9 +16,9 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
       body: JSON.stringify({ identifier })
     });
 
-    const data = await res.json();
+    const data = await parseJsonSafe(res);
 
-    if(data.status === "ok"){
+    if(res.ok && data.status === "ok"){
       localStorage.setItem("sso_identifier", identifier);
       showMsg("OTP sent");
       window.location.href = "./verify.html";

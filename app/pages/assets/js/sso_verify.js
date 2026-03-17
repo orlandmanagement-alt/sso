@@ -24,9 +24,9 @@ document.getElementById("verifyForm").addEventListener("submit", async (e) => {
       credentials: "include"
     });
 
-    const data = await res.json();
+    const data = await parseJsonSafe(res);
 
-    if(data.status === "ok"){
+    if(res.ok && data.status === "ok"){
       showMsg("Login success");
       const nextUrl = await resolveRedirect();
       window.location.href = nextUrl;
@@ -44,7 +44,7 @@ async function resolveRedirect(){
     const res = await fetch(`${API_BASE}/auth/resolve_redirect`, {
       credentials: "include"
     });
-    const data = await res.json();
+    const data = await parseJsonSafe(res);
     return data?.data?.redirect_url || "/";
   }catch{
     return "/";
