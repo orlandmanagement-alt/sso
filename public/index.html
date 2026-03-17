@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SSO Login</title>
+  <link rel="stylesheet" href="/assets/css/sso.css">
+</head>
+<body>
+  <main class="sso-wrap">
+    <section class="sso-card">
+      <h1>Orland SSO</h1>
+      <p class="muted">Sign in with your email to continue.</p>
+
+      <form id="requestOtpForm" class="stack">
+        <label>Email</label>
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+        <label>Portal</label>
+        <select id="portal">
+          <option value="">Auto</option>
+          <option value="dashboard">Dashboard</option>
+          <option value="talent">Talent</option>
+          <option value="client">Client</option>
+        </select>
+        <label>Next Path</label>
+        <input id="next" type="text" placeholder="/" value="/">
+        <button type="submit">Request OTP</button>
+      </form>
+
+      <div id="notice" class="notice"></div>
+
+      <div class="actions">
+        <a href="/verify.html">Already have OTP?</a>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/assets/js/sso_login.js"></script>
+</body>
+</html>

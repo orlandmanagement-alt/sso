@@ -1,44 +1,5 @@
-import { jsonOk, jsonUnauthorized, jsonInvalid, jsonForbidden } from "../../_core/response.js";
-import { parseCookies, getSessionCookieName } from "./_helper/auth_session.js";
-import { getSessionRecord } from "./_helper/auth_service.js";
-import { findSessionById, revokeSessionById } from "./_helper/auth_queries.js";
-
-function norm(value){
-  return String(value || "").trim();
-}
+import { onRevokeSession } from "../../services/auth/session_service.js";
 
 export async function onRequestPost({ request, env }){
-  const auth = await getSessionRecord(env, request, parseCookies, getSessionCookieName);
-
-  if(!auth){
-    return jsonUnauthorized("session_not_found");
-  }
-
-  let body;
-  try{
-    body = await request.json();
-  }catch{
-    return jsonInvalid("invalid_json");
-  }
-
-  const sessionId = norm(body?.session_id);
-  if(!sessionId){
-    return jsonInvalid("session_id_required");
-  }
-
-  const row = await findSessionById(env, sessionId);
-  if(!row){
-    return jsonInvalid("session_not_found");
-  }
-
-  if(String(row.user_id || "") !== String(auth.user.id || "")){
-    return jsonForbidden("cannot_revoke_foreign_session");
-  }
-
-  await revokeSessionById(env, sessionId);
-
-  return jsonOk({
-    revoked: true,
-    session_id: sessionId
-  });
+  return onRevokeSession({ request, env });
 }

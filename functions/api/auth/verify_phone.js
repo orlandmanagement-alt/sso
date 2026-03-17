@@ -1,54 +1,5 @@
-import { jsonOk, jsonInvalid, jsonUnauthorized, jsonForbidden } from "../../_core/response.js";
-import { parseCookies, getSessionCookieName, makeDeviceFingerprint, getNow } from "./_helper/auth_session.js";
-import { getSessionRecord } from "./_helper/auth_service.js";
-import { isOtpCode } from "./_helper/auth_validator.js";
+import { onVerifyPhone } from "../../services/auth/stepup_service.js";
 
 export async function onRequestPost({ request, env }){
-  const auth = await getSessionRecord(env, request, parseCookies, getSessionCookieName);
-
-  if(!auth){
-    return jsonUnauthorized("session_not_found");
-  }
-
-  let body;
-  try{
-    body = await request.json();
-  }catch{
-    return jsonInvalid("invalid_json");
-  }
-
-  const otpCode = String(body?.otp_code || "").trim();
-  if(!isOtpCode(otpCode)){
-    return jsonInvalid("otp_code_required");
-  }
-
-  const fingerprint = makeDeviceFingerprint(request, auth.user.id);
-
-  const row = await env.DB.prepare(`
-    SELECT id, status
-    FROM auth_trusted_devices
-    WHERE user_id = ?
-      AND device_fingerprint = ?
-    LIMIT 1
-  `).bind(auth.user.id, fingerprint).first();
-
-  if(!row){
-    return jsonForbidden("device_challenge_not_found");
-  }
-
-  const now = getNow();
-
-  await env.DB.prepare(`
-    UPDATE auth_trusted_devices
-    SET
-      status = 'active',
-      last_seen_at = ?,
-      updated_at = ?
-    WHERE id = ?
-  `).bind(now, now, row.id).run();
-
-  return jsonOk({
-    verified: true,
-    flow: "device_verification"
-  });
+  return onVerifyPhone({ request, env });
 }

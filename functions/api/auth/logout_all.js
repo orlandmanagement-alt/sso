@@ -1,24 +1,5 @@
-import { jsonOk, jsonUnauthorized } from "../../_core/response.js";
-import { parseCookies, getSessionCookieName, clearSessionCookie } from "./_helper/auth_session.js";
-import { getSessionRecord } from "./_helper/auth_service.js";
-import { revokeSessionsByUserId } from "./_helper/auth_queries.js";
+import { onLogoutAll } from "../../services/auth/session_service.js";
 
 export async function onRequestPost({ request, env }){
-  const auth = await getSessionRecord(env, request, parseCookies, getSessionCookieName);
-
-  if(!auth){
-    const res = jsonUnauthorized("session_not_found");
-    res.headers.set("set-cookie", clearSessionCookie());
-    return res;
-  }
-
-  await revokeSessionsByUserId(env, auth.user.id);
-
-  const res = jsonOk({
-    revoked: true,
-    scope: "all_sessions"
-  });
-
-  res.headers.set("set-cookie", clearSessionCookie());
-  return res;
+  return onLogoutAll({ request, env });
 }

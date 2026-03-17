@@ -1,8 +1,0 @@
-app/pages/sso/_routes.json
-app/pages/sso/access-denied.html
-app/pages/sso/assets/css/sso.css
-app/pages/sso/assets/js/sso_core.js
-app/pages/sso/assets/js/sso_login.js
-app/pages/sso/assets/js/sso_verify.js
-app/pages/sso/index.html
-app/pages/sso/verify.html

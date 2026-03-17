@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Access Denied</title>
+  <link rel="stylesheet" href="/assets/css/sso.css">
+</head>
+<body>
+  <main class="sso-wrap">
+    <section class="sso-card">
+      <h1>Access Denied</h1>
+      <p id="reasonText" class="muted">You do not have access to this portal.</p>
+      <div class="actions">
+        <a href="/index.html">Back to login</a>
+      </div>
+    </section>
+  </main>
+  <script type="module">
+    const u = new URL(location.href);
+    const reason = u.searchParams.get("reason") || "role_not_allowed";
+    const role = u.searchParams.get("role") || "";
+    const el = document.getElementById("reasonText");
+    el.textContent = `Access denied: ${reason}${role ? " for " + role : ""}`;
+  </script>
+</body>
+</html>

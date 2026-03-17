@@ -1,23 +1,5 @@
-import { jsonOk, jsonUnauthorized } from "../../_core/response.js";
-import { parseCookies, getSessionCookieName } from "./_helper/auth_session.js";
-import { getSessionRecord } from "./_helper/auth_service.js";
+import { onExchange } from "../../services/auth/stepup_service.js";
 
 export async function onRequestPost({ request, env }){
-  const auth = await getSessionRecord(env, request, parseCookies, getSessionCookieName);
-
-  if(!auth){
-    return jsonUnauthorized("session_not_found");
-  }
-
-  return jsonOk({
-    exchanged: true,
-    user: auth.user,
-    roles: auth.roles,
-    session: {
-      id: auth.session.id,
-      status: auth.session.status,
-      expires_at: auth.session.expires_at,
-      created_at: auth.session.created_at
-    }
-  });
+  return onExchange({ request, env });
 }
