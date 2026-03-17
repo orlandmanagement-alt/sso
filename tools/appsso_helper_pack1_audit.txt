@@ -1,8 +1,0 @@
-[SUMMARY]
-helper_dir_exists: True
-expected_count: 6
-existing_count: 6
-missing_count: 0
-
-[MISSING]
-- none
