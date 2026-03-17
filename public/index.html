@@ -3,37 +3,97 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SSO Login</title>
+  <title>Orland SSO • Sign In</title>
+  <meta name="theme-color" content="#0b1120">
   <link rel="stylesheet" href="/assets/css/sso.css">
 </head>
-<body>
-  <main class="sso-wrap">
-    <section class="sso-card">
-      <h1>Orland SSO</h1>
-      <p class="muted">Sign in with your email to continue.</p>
+<body class="sso-page">
+  <div class="sso-bg">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+    <div class="grid"></div>
+  </div>
 
-      <form id="requestOtpForm" class="stack">
-        <label>Email</label>
-        <input id="email" type="email" placeholder="you@example.com" autocomplete="email" required>
-        <label>Portal</label>
-        <select id="portal">
-          <option value="">Auto</option>
-          <option value="dashboard">Dashboard</option>
-          <option value="talent">Talent</option>
-          <option value="client">Client</option>
-        </select>
-        <label>Next Path</label>
-        <input id="next" type="text" placeholder="/" value="/">
-        <button type="submit">Request OTP</button>
+  <main class="shell">
+    <section class="hero reveal">
+      <div class="brand-row">
+        <div class="brand-mark">O</div>
+        <div>
+          <div class="brand-name">Orland Management</div>
+          <div class="brand-sub">Unified Secure Access</div>
+        </div>
+      </div>
+
+      <div class="hero-copy">
+        <span class="eyebrow">Enterprise Single Sign-On</span>
+        <h1>Secure access for dashboard, talent, and client portals.</h1>
+        <p>
+          One identity layer for your entire Orland ecosystem. Fast sign-in,
+          session continuity across subdomains, and cleaner access control.
+        </p>
+      </div>
+
+      <div class="hero-points">
+        <div class="point-card">
+          <strong>Centralized Authentication</strong>
+          <span>One login experience across all portals.</span>
+        </div>
+        <div class="point-card">
+          <strong>Cross-Portal Session</strong>
+          <span>Shared secure session on .orlandmanagement.com.</span>
+        </div>
+        <div class="point-card">
+          <strong>Enterprise Ready</strong>
+          <span>OTP, redirect control, device/session management.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="auth-card reveal delay-1">
+      <div class="card-top">
+        <div>
+          <div class="card-kicker">Welcome back</div>
+          <h2>Sign in to continue</h2>
+        </div>
+        <div class="status-dot" aria-hidden="true"></div>
+      </div>
+
+      <form id="requestOtpForm" class="form-stack">
+        <div class="field">
+          <label for="email">Work Email</label>
+          <input id="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+
+        <div class="field">
+          <label for="portal">Portal</label>
+          <select id="portal">
+            <option value="">Auto detect</option>
+            <option value="dashboard">Dashboard</option>
+            <option value="talent">Talent</option>
+            <option value="client">Client</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="next">Next Path</label>
+          <input id="next" type="text" value="/" placeholder="/">
+        </div>
+
+        <button class="btn btn-primary" type="submit">
+          <span>Request OTP</span>
+        </button>
       </form>
 
       <div id="notice" class="notice"></div>
 
-      <div class="actions">
+      <div class="card-actions">
         <a href="/verify.html">Already have OTP?</a>
+        <a href="/access-denied.html">Access help</a>
       </div>
     </section>
   </main>
+
   <script type="module" src="/assets/js/sso_login.js"></script>
 </body>
 </html>

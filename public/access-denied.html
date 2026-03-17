@@ -3,25 +3,52 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Access Denied</title>
+  <title>Orland SSO • Access Denied</title>
+  <meta name="theme-color" content="#0b1120">
   <link rel="stylesheet" href="/assets/css/sso.css">
 </head>
-<body>
-  <main class="sso-wrap">
-    <section class="sso-card">
-      <h1>Access Denied</h1>
-      <p id="reasonText" class="muted">You do not have access to this portal.</p>
-      <div class="actions">
-        <a href="/index.html">Back to login</a>
+<body class="sso-page">
+  <div class="sso-bg">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+    <div class="grid"></div>
+  </div>
+
+  <main class="shell shell-narrow">
+    <section class="auth-card auth-card-wide reveal">
+      <div class="card-top">
+        <div>
+          <div class="card-kicker">Access Control</div>
+          <h2>Access denied</h2>
+        </div>
+        <div class="status-dot status-dot-danger" aria-hidden="true"></div>
+      </div>
+
+      <p id="reasonText" class="intro-text">
+        You do not have permission to access this portal.
+      </p>
+
+      <div class="hero-points single-column">
+        <div class="point-card">
+          <strong>Possible reasons</strong>
+          <span>Your role is not assigned, your session is outdated, or the portal mapping is restricted.</span>
+        </div>
+      </div>
+
+      <div class="card-actions card-actions-spread">
+        <a class="btn btn-secondary" href="/index.html">Back to sign in</a>
       </div>
     </section>
   </main>
+
   <script type="module">
     const u = new URL(location.href);
     const reason = u.searchParams.get("reason") || "role_not_allowed";
     const role = u.searchParams.get("role") || "";
+    const next = u.searchParams.get("next") || "/";
     const el = document.getElementById("reasonText");
-    el.textContent = `Access denied: ${reason}${role ? " for " + role : ""}`;
+    el.textContent = `Access denied: ${reason}${role ? " for " + role : ""}. Requested destination: ${next}`;
   </script>
 </body>
 </html>
