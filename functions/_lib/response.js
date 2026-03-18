@@ -1,34 +1,13 @@
-export function json(status, st, data = null, extraHeaders = {}){
-  return new Response(JSON.stringify({ status: st, data }, null, 0), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      ...extraHeaders
-    }
+export function json(data, init = {}) {
+  return new Response(JSON.stringify(data), {
+    status: init.status || 200,
+    headers: { "Content-Type": "application/json", ...(init.headers || {}) }
   });
 }
-
-export function jsonOk(data = null, headers = {}){
-  return json(200, "ok", data, headers);
-}
-
-export function jsonInvalid(data = null){
-  return json(400, "invalid_input", data);
-}
-
-export function jsonUnauthorized(data = null){
-  return json(401, "unauthorized", data);
-}
-
-export function jsonForbidden(data = null){
-  return json(403, "forbidden", data);
-}
-
-export function jsonNotFound(data = null){
-  return json(404, "not_found", data);
-}
-
-export function jsonError(data = null){
-  return json(500, "server_error", data);
-}
+export const jsonOk = (data, init) => json({ status: "ok", ...data }, { status: 200, ...init });
+export const jsonInvalid = (data, init) => json({ status: "error", ...data }, { status: 400, ...init });
+export const jsonUnauthorized = (data, init) => json({ status: "error", ...data }, { status: 401, ...init });
+export const jsonForbidden = (data, init) => json({ status: "error", ...data }, { status: 403, ...init });
+export const jsonNotFound = (data, init) => json({ status: "error", ...data }, { status: 404, ...init });
+export const jsonConflict = (data, init) => json({ status: "error", ...data }, { status: 409, ...init });
+export const jsonError = (data, init) => json({ status: "error", ...data }, { status: 500, ...init });

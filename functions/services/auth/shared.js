@@ -88,3 +88,12 @@ export function makeSessionCookie(request, env, sid, maxAgeSec){
 export function clearSessionCookie(request, env){
   return cookie("sid", "", { path: "/", domain: inferCookieDomain(request, env), maxAge: 0, httpOnly: true, secure: true, sameSite: "Lax" });
 }
+
+export function deniedUrl(env, reason = "role_not_allowed", role = "", next = "/"){
+  const base = env.SSO_DEFAULT_REDIRECT_DENIED || "https://sso.orlandmanagement.com/access-denied.html";
+  const u = new URL(base);
+  u.searchParams.set("reason", reason);
+  if(role) u.searchParams.set("role", role);
+  if(next) u.searchParams.set("next", next);
+  return u.toString();
+}
