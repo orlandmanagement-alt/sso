@@ -17,30 +17,27 @@ export async function parseJsonSafe(res){
   try{
     return JSON.parse(text);
   }catch{
-    return {
-      status: "error",
-      data: {
-        message: "invalid_server_response",
-        raw: text
-      }
-    };
+    return { status: "error", data: { message: "invalid_server_response", raw: text } };
   }
 }
 
 export async function postJson(path, body){
-  const res = await fetch(ssoApiUrl(path), {
-    method: "POST",
-    credentials: "include",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body || {})
-  });
-
-  const json = await parseJsonSafe(res);
-  return {
-    ok: res.ok && json?.status === "ok",
-    statusCode: res.status,
-    status: json?.status || "error",
-    data: json?.data || null,
-    raw: json
-  };
+  try {
+    const res = await fetch(ssoApiUrl(path), {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body || {})
+    });
+    const json = await parseJsonSafe(res);
+    return {
+      ok: res.ok && (json?.status === "ok" || json?.success || json?.verified || json?.logged_in),
+      statusCode: res.status,
+      status: json?.status || (res.ok ? "ok" : "error"),
+      data: json?.data || json || null,
+      raw: json
+    };
+  } catch(err) {
+    return { ok: false, statusCode: 0, status: "network_error", data: { message: err.message }, raw: null };
+  }
 }

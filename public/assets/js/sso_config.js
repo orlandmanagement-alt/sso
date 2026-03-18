@@ -1,5 +1,5 @@
 export const SSO_CONFIG = {
-  apiBaseUrl: "",
+  apiBaseUrl: "/api",
   defaultPortalUrls: {
     dashboard: "https://dashboard.orlandmanagement.com",
     talent: "https://talent.orlandmanagement.com",
@@ -10,5 +10,5 @@ export const SSO_CONFIG = {
 
 export function ssoApiUrl(path){
   const clean = String(path || "").startsWith("/") ? String(path) : `/${String(path || "")}`;
-  return clean;
+  return clean.replace(/^\/functions/, "");
 }

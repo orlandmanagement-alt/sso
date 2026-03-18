@@ -9,22 +9,16 @@ export async function onRequestOtp({ request, env, body }){
   const requestedPortal = String(body.portal || "").trim();
   const next = safeNextPath(body.next || "/", "/");
 
-  if(!email || !email.includes("@")){
-    return jsonInvalid({ message: "email_required" });
-  }
+  if(!email || !email.includes("@")) return jsonInvalid({ message: "email_required" });
 
   const user = await findUserByEmail(env, email);
   let roles = [];
-  if(user?.id){
-    roles = await getUserRoles(env, user.id);
-  }
+  if(user?.id) roles = await getUserRoles(env, user.id);
 
   if((!roles || !roles.length) && env.HASH_PEPPER){
     const email_hash = await sha256Base64(email + "|" + env.HASH_PEPPER);
     const inv = await findInviteByEmailHash(env, email_hash);
-    if(inv?.role){
-      roles = [String(inv.role)];
-    }
+    if(inv?.role) roles = [String(inv.role)];
   }
 
   const portal = requestedPortal || defaultPortalFromRoles(roles);
@@ -40,32 +34,9 @@ export async function onRequestOtp({ request, env, body }){
   const identifier_hash = await sha256Base64(`${email}|${env.HASH_PEPPER || ""}`);
 
   try{
-    await insertOtpRequest(env, {
-      id: crypto.randomUUID(),
-      purpose: "login",
-      identifier_hash,
-      otp_hash,
-      otp_salt: salt,
-      attempts: 0,
-      max_attempts: 5,
-      created_at: now,
-      expires_at: now + ttl,
-      consumed_at: null
-    });
-
-    return jsonOk({
-      sent: true,
-      channel: "email",
-      email,
-      portal: portal || null,
-      next,
-      otp_preview: env.DEV_SHOW_OTP === "1" ? otp : undefined,
-      expires_at: now + ttl
-    });
+    await insertOtpRequest(env, { id: crypto.randomUUID(), purpose: "login", identifier_hash, otp_hash, otp_salt: salt, attempts: 0, max_attempts: 5, created_at: now, expires_at: now + ttl, consumed_at: null });
+    return jsonOk({ sent: true, channel: "email", email, portal: portal || null, next, otp_preview: env.DEV_SHOW_OTP === "1" ? otp : undefined, expires_at: now + ttl });
   }catch(err){
-    return jsonError({
-      message: "failed_to_create_otp",
-      detail: String(err?.message || err)
-    });
+    return jsonError({ message: "failed_to_create_otp", detail: String(err?.message || err) });
   }
 }

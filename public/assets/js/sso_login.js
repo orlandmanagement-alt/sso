@@ -5,19 +5,13 @@ const emailEl = document.getElementById("email");
 const portalEl = document.getElementById("portal");
 const nextEl = document.getElementById("next");
 
-if(emailEl){
-  emailEl.value = getQueryParam("email", "");
-}
-if(portalEl){
-  portalEl.value = getQueryParam("portal", "");
-}
-if(nextEl){
-  nextEl.value = getQueryParam("next", "/");
-}
+if(emailEl) emailEl.value = getQueryParam("email", "");
+if(portalEl) portalEl.value = getQueryParam("portal", "");
+if(nextEl) nextEl.value = getQueryParam("next", "/");
 
 form?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  setNotice("Requesting OTP...");
+  setNotice("Meminta OTP...");
 
   const payload = {
     email: String(emailEl?.value || "").trim(),
@@ -25,10 +19,11 @@ form?.addEventListener("submit", async (event) => {
     next: String(nextEl?.value || "").trim() || "/"
   };
 
-  const res = await postJson("/functions/api/auth/request_otp", payload);
+  const res = await postJson("/api/auth/request_otp", payload);
 
   if(!res.ok){
-    setNotice(res?.data?.message || "Failed to request OTP.", "error");
+    let msg = res?.data?.message || res?.data?.error || "Gagal meminta OTP.";
+    setNotice(msg, "error");
     return;
   }
 
@@ -36,6 +31,7 @@ form?.addEventListener("submit", async (event) => {
   url.searchParams.set("email", payload.email);
   if(payload.portal) url.searchParams.set("portal", payload.portal);
   url.searchParams.set("next", payload.next);
-  setNotice("OTP sent. Redirecting...", "success");
+  
+  setNotice("OTP berhasil dikirim. Mengalihkan...", "success");
   setTimeout(() => { location.href = url.toString(); }, 500);
 });

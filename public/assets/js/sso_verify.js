@@ -6,19 +6,13 @@ const otpEl = document.getElementById("otp");
 const portalEl = document.getElementById("portal");
 const nextEl = document.getElementById("next");
 
-if(emailEl){
-  emailEl.value = getQueryParam("email", "");
-}
-if(portalEl){
-  portalEl.value = getQueryParam("portal", "");
-}
-if(nextEl){
-  nextEl.value = getQueryParam("next", "/");
-}
+if(emailEl) emailEl.value = getQueryParam("email", "");
+if(portalEl) portalEl.value = getQueryParam("portal", "");
+if(nextEl) nextEl.value = getQueryParam("next", "/");
 
 form?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  setNotice("Verifying OTP...");
+  setNotice("Memverifikasi OTP dan Kredensial Keamanan...");
 
   const payload = {
     email: String(emailEl?.value || "").trim(),
@@ -27,20 +21,19 @@ form?.addEventListener("submit", async (event) => {
     next: String(nextEl?.value || "").trim() || "/"
   };
 
-  const res = await postJson("/functions/api/auth/verify_otp", payload);
+  const res = await postJson("/api/auth/verify_otp", payload);
 
   if(!res.ok){
-    setNotice(res?.data?.message || "Failed to verify OTP.", "error");
+    let msg = res?.data?.message || res?.data?.error || "Gagal memverifikasi OTP.";
+    if(res.statusCode === 403 && msg.includes("locked")) {
+      msg = "Akun terkunci sementara karena aktivitas mencurigakan. Coba lagi nanti.";
+    }
+    setNotice(msg, "error");
     return;
   }
 
   const redirectUrl = String(res?.data?.redirect_url || "").trim();
-  setNotice("OTP verified. Redirecting...", "success");
+  setNotice("Otentikasi berhasil. Mengalihkan ke portal...", "success");
 
-  if(redirectUrl){
-    setTimeout(() => { location.href = redirectUrl; }, 400);
-    return;
-  }
-
-  setTimeout(() => { location.href = "/index.html"; }, 400);
+  setTimeout(() => { location.href = redirectUrl || "/index.html"; }, 400);
 });

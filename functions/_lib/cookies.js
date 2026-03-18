@@ -3,8 +3,8 @@ export function cookie(name, value, opt = {}){
   parts.push(`Path=${opt.path || "/"}`);
   if(opt.domain) parts.push(`Domain=${opt.domain}`);
   if(opt.maxAge != null) parts.push(`Max-Age=${Math.floor(opt.maxAge)}`);
-  if(opt.httpOnly !== false) parts.push("HttpOnly");
-  if(opt.secure !== false) parts.push("Secure");
+  parts.push("HttpOnly");
+  parts.push("Secure");
   parts.push(`SameSite=${opt.sameSite || "Lax"}`);
   return parts.join("; ");
 }

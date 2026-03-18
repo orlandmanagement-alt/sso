@@ -1,6 +1,6 @@
 import { parseCookies, inferCookieDomain, cookie } from "../../_lib/cookies.js";
 import { normEmail } from "../../_lib/validate.js";
-import { getSessionById, touchSession } from "../../repos/session_repo.js";
+import { getSessionById, touchSession, revokeSession } from "../../repos/session_repo.js";
 import { getUserRoles } from "../../repos/auth_repo.js";
 
 export function nowSec(){
@@ -15,9 +15,7 @@ export async function sha256Base64(str){
 export function randomDigits(len = 6){
   let out = "";
   const arr = crypto.getRandomValues(new Uint8Array(len));
-  for(let i = 0; i < len; i++){
-    out += String(arr[i] % 10);
-  }
+  for(let i = 0; i < len; i++) out += String(arr[i] % 10);
   return out;
 }
 
@@ -46,19 +44,10 @@ export function defaultPortalFromRoles(roles){
 }
 
 export function portalBaseUrl(env, portal){
-  if(portal === "dashboard") return env.SSO_DEFAULT_REDIRECT_ADMIN || env.DASHBOARD_URL || "https://dashboard.orlandmanagement.com";
-  if(portal === "talent") return env.SSO_DEFAULT_REDIRECT_TALENT || env.TALENT_URL || "https://talent.orlandmanagement.com";
-  if(portal === "client") return env.SSO_DEFAULT_REDIRECT_CLIENT || env.CLIENT_URL || "https://client.orlandmanagement.com";
-  return env.SSO_DEFAULT_REDIRECT_ADMIN || env.DASHBOARD_URL || "https://dashboard.orlandmanagement.com";
-}
-
-export function deniedUrl(env, reason = "role_not_allowed", role = "", next = "/"){
-  const base = env.SSO_DEFAULT_REDIRECT_DENIED || "https://sso.orlandmanagement.com/access-denied.html";
-  const u = new URL(base);
-  u.searchParams.set("reason", reason);
-  if(role) u.searchParams.set("role", role);
-  if(next) u.searchParams.set("next", next);
-  return u.toString();
+  if(portal === "dashboard") return env.SSO_DEFAULT_REDIRECT_ADMIN || "https://dashboard.orlandmanagement.com";
+  if(portal === "talent") return env.SSO_DEFAULT_REDIRECT_TALENT || "https://talent.orlandmanagement.com";
+  if(portal === "client") return env.SSO_DEFAULT_REDIRECT_CLIENT || "https://client.orlandmanagement.com";
+  return env.SSO_DEFAULT_REDIRECT_ADMIN || "https://dashboard.orlandmanagement.com";
 }
 
 export function buildPortalRedirectUrl(env, portal, next = "/"){
@@ -71,55 +60,31 @@ export async function requireSessionAuth(env, request){
   const cookies = parseCookies(request);
   const sid = String(cookies.sid || "").trim();
   if(!sid) return { ok: false };
-
   const row = await getSessionById(env, sid);
-  if(!row) return { ok: false };
-  if(row.revoked_at) return { ok: false };
-
   const now = nowSec();
-  if(Number(row.expires_at || 0) < now) return { ok: false };
+  if(!row || row.revoked_at || Number(row.expires_at || 0) < now) return { ok: false };
 
-  await touchSession(env, sid, now);
+  const clientIp = request.headers.get("cf-connecting-ip") || "0.0.0.0";
+  const userAgent = request.headers.get("user-agent") || "unknown";
+  const currentIpHash = await sha256Base64(`${clientIp}|${env.HASH_PEPPER}`);
+  const currentUaHash = await sha256Base64(`${userAgent}|${env.HASH_PEPPER}`);
 
-  let roles = [];
-  try{
-    roles = JSON.parse(row.roles_json || row.role_snapshot || "[]") || [];
-  }catch{}
-
-  if((!roles || !roles.length) && row.user_id){
-    roles = await getUserRoles(env, row.user_id);
+  if(row.ip_hash && row.ip_hash !== currentIpHash){
+    await revokeSession(env, sid, now, "ip_mismatch_security_trigger");
+    return { ok: false };
   }
 
-  return {
-    ok: true,
-    sid,
-    uid: row.user_id,
-    roles
-  };
+  await touchSession(env, sid, now);
+  let roles = [];
+  try{ roles = JSON.parse(row.roles_json || row.role_snapshot || "[]") || []; }catch{}
+  if(!roles.length && row.user_id) roles = await getUserRoles(env, row.user_id);
+  return { ok: true, sid, uid: row.user_id, roles };
 }
 
 export function makeSessionCookie(request, env, sid, maxAgeSec){
-  return cookie("sid", sid, {
-    path: "/",
-    domain: inferCookieDomain(request, env),
-    maxAge: maxAgeSec,
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax"
-  });
+  return cookie("sid", sid, { path: "/", domain: inferCookieDomain(request, env), maxAge: maxAgeSec, httpOnly: true, secure: true, sameSite: "Lax" });
 }
 
 export function clearSessionCookie(request, env){
-  return cookie("sid", "", {
-    path: "/",
-    domain: inferCookieDomain(request, env),
-    maxAge: 0,
-    httpOnly: true,
-    secure: true,
-    sameSite: "Lax"
-  });
-}
-
-export function normLoginEmail(v){
-  return normEmail(v);
+  return cookie("sid", "", { path: "/", domain: inferCookieDomain(request, env), maxAge: 0, httpOnly: true, secure: true, sameSite: "Lax" });
 }

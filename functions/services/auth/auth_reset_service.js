@@ -12,27 +12,13 @@ function detectIdentifierType(identifier){
 
 export async function requestPasswordResetService({ env, body }){
   const identifier = String(body.identifier || "").trim();
-  if(!identifier){
-    return jsonInvalid({ message: "identifier_required" });
-  }
+  if(!identifier) return jsonInvalid({ message: "identifier_required" });
 
   const kind = detectIdentifierType(identifier);
-  const user = kind === "email"
-    ? await findUserByEmail(env, identifier)
-    : await findUserByWa(env, identifier);
+  const user = kind === "email" ? await findUserByEmail(env, identifier) : await findUserByWa(env, identifier);
+  if(!user?.id) return jsonNotFound({ message: "user_not_found" });
 
-  if(!user?.id){
-    return jsonNotFound({ message: "user_not_found" });
-  }
-
-  return await requestOtpService({
-    env,
-    body: {
-      identifier,
-      channel: body.channel || "email"
-    },
-    purpose: "reset_password"
-  });
+  return await requestOtpService({ env, body: { identifier, channel: body.channel || "email" }, purpose: "reset_password" });
 }
 
 export async function verifyPasswordResetService({ env, body }){
@@ -40,25 +26,15 @@ export async function verifyPasswordResetService({ env, body }){
   const otp = String(body.otp || "").trim();
   const new_password = String(body.new_password || "").trim();
 
-  if(!identifier || !otp || new_password.length < 8){
-    return jsonInvalid({ message: "invalid_reset_payload" });
-  }
+  if(!identifier || !otp || new_password.length < 5) return jsonInvalid({ message: "invalid_reset_payload" });
 
   const kind = detectIdentifierType(identifier);
-  const user = kind === "email"
-    ? await findUserByEmail(env, identifier)
-    : await findUserByWa(env, identifier);
-
-  if(!user?.id){
-    return jsonNotFound({ message: "user_not_found" });
-  }
+  const user = kind === "email" ? await findUserByEmail(env, identifier) : await findUserByWa(env, identifier);
+  if(!user?.id) return jsonNotFound({ message: "user_not_found" });
 
   const identifier_hash = await sha256Base64(`${identifier}|${env.HASH_PEPPER || ""}`);
   const row = await getActiveOtp(env, "reset_password", identifier_hash, nowSec());
-
-  if(!row){
-    return jsonUnauthorized({ message: "otp_not_found_or_expired" });
-  }
+  if(!row) return jsonUnauthorized({ message: "otp_not_found_or_expired" });
 
   const check_hash = await sha256Base64(`${otp}|${row.otp_salt}|${env.HASH_PEPPER || ""}`);
   if(String(check_hash) !== String(row.otp_hash || "")){
@@ -71,24 +47,10 @@ export async function verifyPasswordResetService({ env, body }){
   const hash = await pbkdf2Hash(new_password, salt, iter);
 
   try{
-    await updateUserPassword(env, user.id, {
-      password_hash: hash,
-      password_salt: salt,
-      password_iter: iter,
-      password_algo: "pbkdf2_sha256",
-      updated_at: nowSec()
-    });
-
+    await updateUserPassword(env, user.id, { password_hash: hash, password_salt: salt, password_iter: iter, password_algo: "pbkdf2_sha256", updated_at: nowSec() });
     await consumeOtp(env, row.id, nowSec());
-
-    return jsonOk({
-      reset: true,
-      user_id: user.id
-    });
+    return jsonOk({ reset: true, user_id: user.id });
   }catch(err){
-    return jsonError({
-      message: "failed_to_reset_password",
-      detail: String(err?.message || err)
-    });
+    return jsonError({ message: "failed_to_reset_password", detail: String(err?.message || err) });
   }
 }

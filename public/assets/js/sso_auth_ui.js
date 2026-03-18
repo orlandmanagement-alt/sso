@@ -1,284 +1,182 @@
+import { postJson, getJson } from "./sso_core.js";
+
 const API = {
-  loginPassword: "/functions/api/auth/login_password",
-  requestOtp: "/functions/api/auth/request_otp",
-  verifyOtp: "/functions/api/auth/verify_otp",
-  register: "/functions/api/auth/register",
-  requestPasswordReset: "/functions/api/auth/request_password_reset",
-  resetPasswordVerify: "/functions/api/auth/reset_password_verify",
-  resolveRedirect: "/functions/api/auth/resolve_redirect"
+  loginCheck: "/api/auth/login_check",
+  loginPin: "/api/auth/login_pin",
+  requestOtp: "/api/auth/request_otp",
+  verifyOtp: "/api/auth/verify_otp",
+  register: "/api/auth/register",
+  registerFinalize: "/api/auth/register_finalize",
+  requestReset: "/api/auth/request_password_reset",
+  resetFinalize: "/api/auth/reset_pin_verify",
+  resolveRedirect: "/api/auth/resolve_redirect"
 };
 
-function qs(sel){
-  return document.querySelector(sel);
-}
+function qs(sel) { return document.querySelector(sel); }
+function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
 
-function qsa(sel){
-  return Array.from(document.querySelectorAll(sel));
-}
-
-function setNotice(message, type = ""){
+function setNotice(message, type = "") {
   const el = qs("#notice");
-  if(!el) return;
+  if (!el) return;
   el.className = `notice ${type}`.trim();
   el.textContent = message || "";
 }
 
-async function parseJsonSafe(res){
-  const text = await res.text();
-  try{
-    return JSON.parse(text);
-  }catch{
-    return {
-      status: "error",
-      data: {
-        message: "invalid_server_response",
-        raw: text
-      }
-    };
-  }
-}
-
-async function postJson(url, body){
-  const res = await fetch(url, {
-    method: "POST",
-    credentials: "include",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body || {})
-  });
-
-  const json = await parseJsonSafe(res);
-
-  return {
-    ok: res.ok && json?.status === "ok",
-    statusCode: res.status,
-    status: json?.status || "error",
-    data: json?.data || null,
-    raw: json
-  };
-}
-
-async function getJson(url){
-  const res = await fetch(url, {
-    method: "GET",
-    credentials: "include"
-  });
-
-  const json = await parseJsonSafe(res);
-
-  return {
-    ok: res.ok && json?.status === "ok",
-    statusCode: res.status,
-    status: json?.status || "error",
-    data: json?.data || null,
-    raw: json
-  };
-}
-
-function activateTab(name){
-  qsa(".tab").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.tab === name);
-  });
-  qsa(".tabpanel").forEach(panel => {
-    panel.classList.toggle("active", panel.dataset.panel === name);
-  });
+function activateTab(name) {
+  qsa(".tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === name));
+  qsa(".tabpanel").forEach(panel => panel.classList.toggle("active", panel.dataset.panel === name));
   setNotice("");
 }
 
-function wireTabs(){
-  qsa(".tab").forEach(btn => {
-    btn.addEventListener("click", () => activateTab(btn.dataset.tab));
-  });
+function wireTabs() { qsa(".tab").forEach(btn => btn.addEventListener("click", () => activateTab(btn.dataset.tab))); }
+function showSubForm(formIdToShow, groupSelector) {
+  qsa(groupSelector).forEach(f => f.classList.add("hidden"));
+  qs(formIdToShow)?.classList.remove("hidden");
 }
 
-async function resolveAndRedirect(){
+async function resolveAndRedirect() {
   const res = await getJson(API.resolveRedirect);
-  if(res.ok && res.data?.redirect_url){
-    location.href = res.data.redirect_url;
-    return;
-  }
+  if (res.ok && res.data?.redirect_url) { location.href = res.data.redirect_url; return; }
   location.href = "https://dashboard.orlandmanagement.com";
 }
 
-function wireLoginPassword(){
-  qs("#loginPasswordForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setNotice("Signing in...");
+function wireLoginFlow() {
+  let loginContext = { identifier: "" };
 
-    const payload = {
-      email: String(qs("#loginEmail")?.value || "").trim(),
-      password: String(qs("#loginPassword")?.value || "").trim()
-    };
+  qs("#loginInitForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setNotice("Memeriksa akun...");
+    loginContext.identifier = qs("#loginIdentifier").value.trim();
+    
+    const res = await postJson(API.loginCheck, { identifier: loginContext.identifier });
+    if(!res.ok) return setNotice(res?.data?.message || "Akun tidak ditemukan.", "error");
 
-    const res = await postJson(API.loginPassword, payload);
+    showSubForm("#loginPinForm", "#loginInitForm, #loginPinForm, #loginOtpForm");
+    setNotice("Akun ditemukan. Masukkan PIN Anda.", "success");
+  });
 
-    if(!res.ok){
-      setNotice(res?.data?.message || "Login failed.", "error");
-      return;
+  qs("#loginPinForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setNotice("Memverifikasi PIN...");
+    const payload = { identifier: loginContext.identifier, pin: qs("#loginPin").value.trim() };
+    
+    const res = await postJson(API.loginPin, payload);
+    if(!res.ok) {
+      let msg = res?.data?.message || "PIN salah.";
+      if(res.statusCode === 403) msg = "Akun terkunci karena terlalu banyak percobaan gagal.";
+      return setNotice(msg, "error");
     }
+    
+    setNotice("Login berhasil. Mengalihkan...", "success");
+    await resolveAndRedirect();
+  });
 
-    setNotice("Login successful. Redirecting...", "success");
+  qs("#btnUseOtpFallback")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    setNotice("Meminta OTP...");
+    const res = await postJson(API.requestOtp, { identifier: loginContext.identifier, channel: "email" });
+    if(!res.ok) return setNotice("Gagal mengirim OTP.", "error");
+
+    showSubForm("#loginOtpForm", "#loginInitForm, #loginPinForm, #loginOtpForm");
+    setNotice("OTP dikirim ke email/WA Anda.", "success");
+  });
+
+  qs("#loginOtpForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setNotice("Memverifikasi OTP...");
+    const res = await postJson(API.verifyOtp, { identifier: loginContext.identifier, otp: qs("#loginOtpCode").value.trim() });
+    if(!res.ok) return setNotice("OTP tidak valid.", "error");
+
+    setNotice("Login berhasil. Mengalihkan...", "success");
     await resolveAndRedirect();
   });
 }
 
-function wireOtpLogin(){
-  qs("#requestOtpForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setNotice("Requesting OTP...");
+function wireRegisterFlow() {
+  let regContext = {};
 
-    const identifier = String(qs("#otpIdentifier")?.value || "").trim();
-    const channel = String(qs("#otpChannel")?.value || "email").trim();
+  qs("#registerInitForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setNotice("Memproses data & mengirim OTP...");
+    regContext = {
+      role: qs("#registerRole").value,
+      channel: qs("#registerOtpChannel").value,
+      email: qs("#registerEmail").value.trim(),
+      wa: qs("#registerWa").value.trim()
+    };
+    
+    const res = await postJson(API.register, { role: regContext.role, otp_channel: regContext.channel, email: regContext.email, wa: regContext.wa });
+    if(!res.ok) return setNotice(res?.data?.message || "Email/WA mungkin sudah terdaftar.", "error");
 
-    const res = await postJson(API.requestOtp, {
-      identifier,
-      channel
-    });
-
-    if(!res.ok){
-      setNotice(res?.data?.message || "Failed to request OTP.", "error");
-      return;
-    }
-
-    const verifyIdentifier = qs("#verifyIdentifier");
-    if(verifyIdentifier) verifyIdentifier.value = identifier;
-
-    qs("#verifyOtpForm")?.classList.remove("hidden");
-    setNotice(`OTP sent via ${channel}. Enter the code to continue.`, "success");
+    showSubForm("#registerVerifyForm", "#registerInitForm, #registerVerifyForm, #registerPinForm");
+    setNotice(`OTP berhasil dikirim via ${regContext.channel}.`, "success");
   });
 
-  qs("#verifyOtpForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setNotice("Verifying OTP...");
+  qs("#registerVerifyForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    regContext.otp = qs("#registerVerifyCode").value.trim();
+    showSubForm("#registerPinForm", "#registerInitForm, #registerVerifyForm, #registerPinForm");
+    setNotice("Kode disimpan. Silakan buat PIN 6-Digit Anda.", "success");
+  });
 
-    const payload = {
-      identifier: String(qs("#verifyIdentifier")?.value || "").trim(),
-      otp: String(qs("#verifyOtpCode")?.value || "").trim()
-    };
+  qs("#registerPinForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const pin1 = qs("#registerPin1").value;
+    const pin2 = qs("#registerPin2").value;
+    if (pin1 !== pin2) return setNotice("Konfirmasi PIN tidak cocok!", "error");
 
-    const res = await postJson(API.verifyOtp, payload);
-
-    if(!res.ok){
-      setNotice(res?.data?.message || "OTP verification failed.", "error");
-      return;
-    }
-
-    setNotice("Login successful. Redirecting...", "success");
-    if(res.data?.redirect_url){
-      location.href = res.data.redirect_url;
-      return;
-    }
-    await resolveAndRedirect();
+    setNotice("Menyimpan PIN & Mengaktifkan akun...");
+    regContext.pin = pin1;
+    
+    const res = await postJson(API.registerFinalize, regContext);
+    if(!res.ok) return setNotice("Gagal memverifikasi akun.", "error");
+    
+    setNotice("Akun aktif! Silakan masuk.", "success");
+    setTimeout(() => {
+      activateTab("login");
+      showSubForm("#loginInitForm", "#loginInitForm, #loginPinForm, #loginOtpForm");
+      qs("#loginIdentifier").value = regContext.email;
+    }, 1500);
   });
 }
 
-function wireRegister(){
-  let registerContext = {
-    role: "",
-    email: "",
-    wa: "",
-    channel: ""
-  };
+function wireResetFlow() {
+  let resetCtx = {};
 
-  qs("#registerForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setNotice("Creating account...");
+  qs("#resetRequestForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setNotice("Mengirim kode pemulihan...");
+    resetCtx.identifier = qs("#resetIdentifier").value.trim();
+    resetCtx.channel = qs("#resetChannel").value;
+    
+    const res = await postJson(API.requestReset, resetCtx);
+    if(!res.ok) return setNotice("Gagal meminta kode.", "error");
 
-    registerContext = {
-      role: String(qs("#registerRole")?.value || "talent").trim(),
-      email: String(qs("#registerEmail")?.value || "").trim(),
-      wa: String(qs("#registerWa")?.value || "").trim(),
-      password: String(qs("#registerPassword")?.value || "").trim(),
-      channel: String(qs("#registerOtpChannel")?.value || "email").trim()
-    };
-
-    const res = await postJson(API.register, {
-      role: registerContext.role,
-      email: registerContext.email,
-      wa: registerContext.wa,
-      password: registerContext.password,
-      otp_channel: registerContext.channel
-    });
-
-    if(!res.ok){
-      setNotice(res?.data?.message || "Registration failed.", "error");
-      return;
-    }
-
-    qs("#registerVerifyForm")?.classList.remove("hidden");
-    setNotice(`Account created. Verification code sent via ${registerContext.channel}.`, "success");
+    showSubForm("#resetVerifyForm", "#resetRequestForm, #resetVerifyForm, #resetPinForm");
+    setNotice(`Kode pemulihan dikirim via ${resetCtx.channel}.`, "success");
   });
 
-  qs("#registerVerifyForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setNotice("Verifying account...");
+  qs("#resetVerifyForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    resetCtx.otp = qs("#resetOtpCode").value.trim();
+    showSubForm("#resetPinForm", "#resetRequestForm, #resetVerifyForm, #resetPinForm");
+    setNotice("Silakan buat PIN baru Anda.", "success");
+  });
 
-    const res = await postJson(API.verifyOtp, {
-      identifier: registerContext.channel === "wa" ? registerContext.wa : registerContext.email,
-      otp: String(qs("#registerVerifyCode")?.value || "").trim()
-    });
+  qs("#resetPinForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    setNotice("Memperbarui PIN...");
+    resetCtx.pin = qs("#resetNewPin").value.trim();
+    
+    const res = await postJson(API.resetFinalize, resetCtx);
+    if(!res.ok) return setNotice("Gagal memperbarui PIN.", "error");
 
-    if(!res.ok){
-      setNotice(res?.data?.message || "Verification failed.", "error");
-      return;
-    }
-
-    setNotice("Account verified. Redirecting...", "success");
-    if(res.data?.redirect_url){
-      location.href = res.data.redirect_url;
-      return;
-    }
-    await resolveAndRedirect();
+    setNotice("PIN berhasil diperbarui. Silakan login.", "success");
+    setTimeout(() => {
+      activateTab("login");
+      showSubForm("#loginInitForm", "#loginInitForm, #loginPinForm, #loginOtpForm");
+    }, 1500);
   });
 }
 
-function wireResetPassword(){
-  let resetContext = {
-    identifier: "",
-    channel: ""
-  };
-
-  qs("#resetRequestForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setNotice("Requesting reset code...");
-
-    resetContext = {
-      identifier: String(qs("#resetIdentifier")?.value || "").trim(),
-      channel: String(qs("#resetChannel")?.value || "email").trim()
-    };
-
-    const res = await postJson(API.requestPasswordReset, resetContext);
-
-    if(!res.ok){
-      setNotice(res?.data?.message || "Failed to request reset code.", "error");
-      return;
-    }
-
-    qs("#resetVerifyForm")?.classList.remove("hidden");
-    setNotice(`Reset code sent via ${resetContext.channel}.`, "success");
-  });
-
-  qs("#resetVerifyForm")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    setNotice("Resetting password...");
-
-    const res = await postJson(API.resetPasswordVerify, {
-      identifier: resetContext.identifier,
-      otp: String(qs("#resetOtpCode")?.value || "").trim(),
-      new_password: String(qs("#resetNewPassword")?.value || "").trim()
-    });
-
-    if(!res.ok){
-      setNotice(res?.data?.message || "Password reset failed.", "error");
-      return;
-    }
-
-    setNotice("Password updated. You can login now.", "success");
-    activateTab("login-password");
-  });
-}
-
-wireTabs();
-wireLoginPassword();
-wireOtpLogin();
-wireRegister();
-wireResetPassword();
+wireTabs(); wireLoginFlow(); wireRegisterFlow(); wireResetFlow();
