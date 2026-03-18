@@ -1,13 +1,14 @@
-export function json(data, init = {}) {
-  return new Response(JSON.stringify(data), {
-    status: init.status || 200,
-    headers: { "Content-Type": "application/json", ...(init.headers || {}) }
-  });
-}
-export const jsonOk = (data, init) => json({ status: "ok", ...data }, { status: 200, ...init });
-export const jsonInvalid = (data, init) => json({ status: "error", ...data }, { status: 400, ...init });
-export const jsonUnauthorized = (data, init) => json({ status: "error", ...data }, { status: 401, ...init });
-export const jsonForbidden = (data, init) => json({ status: "error", ...data }, { status: 403, ...init });
-export const jsonNotFound = (data, init) => json({ status: "error", ...data }, { status: 404, ...init });
-export const jsonConflict = (data, init) => json({ status: "error", ...data }, { status: 409, ...init });
-export const jsonError = (data, init) => json({ status: "error", ...data }, { status: 500, ...init });
+export const jsonOk = (data, cookieHeader = null) => {
+  const headers = { "Content-Type": "application/json" };
+  if (cookieHeader) headers["Set-Cookie"] = cookieHeader;
+  return new Response(JSON.stringify({ status: "ok", ...data }), { status: 200, headers });
+};
+
+export const jsonError = (msg, code = 400) => 
+  new Response(JSON.stringify({ status: "error", message: msg }), { status: code, headers: { "Content-Type": "application/json" } });
+
+export const redirect = (url, cookieHeader = null) => {
+  const headers = { "Location": url };
+  if (cookieHeader) headers["Set-Cookie"] = cookieHeader;
+  return new Response(null, { status: 302, headers });
+};

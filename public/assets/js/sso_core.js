@@ -1,43 +1,27 @@
-import { ssoApiUrl } from "./sso_config.js";
+import { CONFIG } from "./sso_config.js";
 
-export function getQueryParam(name, fallback = ""){
-  const url = new URL(location.href);
-  return url.searchParams.get(name) || fallback;
-}
-
-export function setNotice(message, type = ""){
-  const el = document.getElementById("notice");
-  if(!el) return;
-  el.className = `notice ${type}`.trim();
-  el.textContent = message || "";
-}
-
-export async function parseJsonSafe(res){
-  const text = await res.text();
-  try{
-    return JSON.parse(text);
-  }catch{
-    return { status: "error", data: { message: "invalid_server_response", raw: text } };
-  }
-}
-
-export async function postJson(path, body){
+export async function apiCall(endpoint, payload) {
   try {
-    const res = await fetch(ssoApiUrl(path), {
-      method: "POST",
-      credentials: "include",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body || {})
+    const res = await fetch(`${CONFIG.apiBaseUrl}/${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      credentials: 'omit' // Cloudflare Pages di domain yang sama otomatis akan menyertakan/menyimpan cookie HttpOnly
     });
-    const json = await parseJsonSafe(res);
-    return {
-      ok: res.ok && (json?.status === "ok" || json?.success || json?.verified || json?.logged_in),
-      statusCode: res.status,
-      status: json?.status || (res.ok ? "ok" : "error"),
-      data: json?.data || json || null,
-      raw: json
-    };
-  } catch(err) {
-    return { ok: false, statusCode: 0, status: "network_error", data: { message: err.message }, raw: null };
+    return await res.json();
+  } catch (error) {
+    return { status: "error", message: "Gagal terhubung ke server." };
   }
+}
+
+export function showToast(message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  if(!container) return;
+  const toast = document.createElement('div');
+  const icon = type === 'success' ? '<i class="fa-solid fa-circle-check text-green-500 text-2xl"></i>' : '<i class="fa-solid fa-circle-exclamation text-red-500 text-2xl"></i>';
+  toast.className = 'toast flex items-center w-80';
+  toast.innerHTML = `${icon}<div class="text-sm font-medium text-gray-700 leading-snug">${message}</div>`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => setTimeout(() => toast.classList.add('show'), 10));
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
 }

@@ -1,14 +1,4 @@
-export const SSO_CONFIG = {
-  apiBaseUrl: "/api",
-  defaultPortalUrls: {
-    dashboard: "https://dashboard.orlandmanagement.com",
-    talent: "https://talent.orlandmanagement.com",
-    client: "https://client.orlandmanagement.com"
-  },
-  deniedUrl: "https://sso.orlandmanagement.com/access-denied.html"
+export const CONFIG = {
+  apiBaseUrl: "/api/auth",
+  defaultDashboard: "https://dashboard.orlandmanagement.com"
 };
-
-export function ssoApiUrl(path){
-  const clean = String(path || "").startsWith("/") ? String(path) : `/${String(path || "")}`;
-  return clean.replace(/^\/functions/, "");
-}
