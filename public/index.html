@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Orland SSO • Sign In</title>
+  <title>Orland SSO • Access</title>
   <meta name="theme-color" content="#0b1120">
   <link rel="stylesheet" href="/assets/css/sso.css">
 </head>
@@ -21,31 +21,30 @@
         <div class="brand-mark">O</div>
         <div>
           <div class="brand-name">Orland Management</div>
-          <div class="brand-sub">Unified Secure Access</div>
+          <div class="brand-sub">Secure Unified Access</div>
         </div>
       </div>
 
       <div class="hero-copy">
-        <span class="eyebrow">Enterprise Single Sign-On</span>
-        <h1>Secure access for dashboard, talent, and client portals.</h1>
+        <span class="eyebrow">Corporate Single Sign-On</span>
+        <h1>One secure access point for Dashboard, Talent, and Client.</h1>
         <p>
-          One identity layer for your entire Orland ecosystem. Fast sign-in,
-          session continuity across subdomains, and cleaner access control.
+          Login with password or OTP, register as Talent or Client, and manage password recovery in one responsive experience.
         </p>
       </div>
 
       <div class="hero-points">
         <div class="point-card">
-          <strong>Centralized Authentication</strong>
-          <span>One login experience across all portals.</span>
+          <strong>Smart Redirect</strong>
+          <span>After login, redirect automatically based on user role.</span>
         </div>
         <div class="point-card">
-          <strong>Cross-Portal Session</strong>
-          <span>Shared secure session on .orlandmanagement.com.</span>
+          <strong>Flexible Access</strong>
+          <span>Support password login, OTP login, register, and reset password.</span>
         </div>
         <div class="point-card">
-          <strong>Enterprise Ready</strong>
-          <span>OTP, redirect control, device/session management.</span>
+          <strong>Mobile Friendly</strong>
+          <span>Fast, responsive, and simple flow for mobile users.</span>
         </div>
       </div>
     </section>
@@ -53,47 +52,159 @@
     <section class="auth-card reveal delay-1">
       <div class="card-top">
         <div>
-          <div class="card-kicker">Welcome back</div>
-          <h2>Sign in to continue</h2>
+          <div class="card-kicker">Account Access</div>
+          <h2>Welcome</h2>
         </div>
         <div class="status-dot" aria-hidden="true"></div>
       </div>
 
-      <form id="requestOtpForm" class="form-stack">
-        <div class="field">
-          <label for="email">Work Email</label>
-          <input id="email" type="email" placeholder="you@example.com" autocomplete="email" required>
-        </div>
+      <div class="tabbar" role="tablist">
+        <button class="tab active" type="button" data-tab="login-password">Login</button>
+        <button class="tab" type="button" data-tab="login-otp">Login via OTP</button>
+        <button class="tab" type="button" data-tab="register">Register</button>
+        <button class="tab" type="button" data-tab="reset-password">Reset Password</button>
+      </div>
 
-        <div class="field">
-          <label for="portal">Portal</label>
-          <select id="portal">
-            <option value="">Auto detect</option>
-            <option value="dashboard">Dashboard</option>
-            <option value="talent">Talent</option>
-            <option value="client">Client</option>
-          </select>
-        </div>
+      <div class="tabpanels">
+        <section class="tabpanel active" data-panel="login-password">
+          <form id="loginPasswordForm" class="form-stack">
+            <div class="field">
+              <label for="loginEmail">Email</label>
+              <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" required>
+            </div>
 
-        <div class="field">
-          <label for="next">Next Path</label>
-          <input id="next" type="text" value="/" placeholder="/">
-        </div>
+            <div class="field">
+              <label for="loginPassword">Password</label>
+              <input id="loginPassword" type="password" placeholder="Enter password" autocomplete="current-password" required>
+            </div>
 
-        <button class="btn btn-primary" type="submit">
-          <span>Request OTP</span>
-        </button>
-      </form>
+            <button class="btn btn-primary" type="submit">Login</button>
+          </form>
+        </section>
+
+        <section class="tabpanel" data-panel="login-otp">
+          <form id="requestOtpForm" class="form-stack">
+            <div class="field">
+              <label for="otpIdentifier">Email or WhatsApp Number</label>
+              <input id="otpIdentifier" type="text" placeholder="Email or 08xxxx" required>
+            </div>
+
+            <div class="field">
+              <label for="otpChannel">Send OTP To</label>
+              <select id="otpChannel">
+                <option value="email">Email</option>
+                <option value="wa">WhatsApp</option>
+              </select>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Request OTP</button>
+          </form>
+
+          <form id="verifyOtpForm" class="form-stack nested-form hidden">
+            <div class="field">
+              <label for="verifyIdentifier">Email or WhatsApp Number</label>
+              <input id="verifyIdentifier" type="text" placeholder="Email or 08xxxx" required>
+            </div>
+
+            <div class="field">
+              <label for="verifyOtpCode">OTP Code</label>
+              <input id="verifyOtpCode" type="text" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" required>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Verify OTP & Login</button>
+          </form>
+        </section>
+
+        <section class="tabpanel" data-panel="register">
+          <form id="registerForm" class="form-stack">
+            <div class="two-col">
+              <div class="field">
+                <label for="registerRole">Account Type</label>
+                <select id="registerRole" required>
+                  <option value="talent">Talent</option>
+                  <option value="client">Client</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="registerOtpChannel">Verification Channel</label>
+                <select id="registerOtpChannel" required>
+                  <option value="email">Email OTP</option>
+                  <option value="wa">WhatsApp OTP</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="registerEmail">Email</label>
+              <input id="registerEmail" type="email" placeholder="you@example.com" autocomplete="email" required>
+            </div>
+
+            <div class="field">
+              <label for="registerWa">WhatsApp Number</label>
+              <input id="registerWa" type="text" placeholder="08xxxxxxxxxx" autocomplete="tel" required>
+            </div>
+
+            <div class="field">
+              <label for="registerPassword">Password</label>
+              <input id="registerPassword" type="password" placeholder="Create password" autocomplete="new-password" required>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Register</button>
+          </form>
+
+          <form id="registerVerifyForm" class="form-stack nested-form hidden">
+            <div class="field">
+              <label for="registerVerifyCode">Verification Code</label>
+              <input id="registerVerifyCode" type="text" placeholder="123456" inputmode="numeric" required>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Verify & Activate Account</button>
+          </form>
+        </section>
+
+        <section class="tabpanel" data-panel="reset-password">
+          <form id="resetRequestForm" class="form-stack">
+            <div class="field">
+              <label for="resetIdentifier">Email or WhatsApp Number</label>
+              <input id="resetIdentifier" type="text" placeholder="Email or 08xxxx" required>
+            </div>
+
+            <div class="field">
+              <label for="resetChannel">Reset Code Via</label>
+              <select id="resetChannel">
+                <option value="email">Email</option>
+                <option value="wa">WhatsApp</option>
+              </select>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Request Reset Code</button>
+          </form>
+
+          <form id="resetVerifyForm" class="form-stack nested-form hidden">
+            <div class="field">
+              <label for="resetOtpCode">Reset Code</label>
+              <input id="resetOtpCode" type="text" placeholder="123456" inputmode="numeric" required>
+            </div>
+
+            <div class="field">
+              <label for="resetNewPassword">New Password</label>
+              <input id="resetNewPassword" type="password" placeholder="New password" autocomplete="new-password" required>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Reset Password</button>
+          </form>
+        </section>
+      </div>
 
       <div id="notice" class="notice"></div>
 
       <div class="card-actions">
-        <a href="/verify.html">Already have OTP?</a>
         <a href="/access-denied.html">Access help</a>
       </div>
     </section>
   </main>
 
-  <script type="module" src="/assets/js/sso_login.js"></script>
+  <script type="module" src="/assets/js/sso_auth_ui.js"></script>
 </body>
 </html>

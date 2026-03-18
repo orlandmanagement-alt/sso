@@ -421,3 +421,74 @@ a:hover{opacity:.9}
     grid-template-columns:1fr;
   }
 }
+
+.tabbar{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:8px;
+  margin:10px 0 18px;
+}
+
+.tab{
+  min-height:44px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.04);
+  color:var(--muted);
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  padding:10px 12px;
+  transition:all .18s ease;
+}
+
+.tab.active{
+  color:var(--text);
+  border-color:rgba(122,162,255,.55);
+  background:linear-gradient(135deg, rgba(122,162,255,.22), rgba(124,226,255,.12));
+  box-shadow:0 10px 30px rgba(122,162,255,.15);
+}
+
+.tabpanel{
+  display:none;
+}
+
+.tabpanel.active{
+  display:block;
+}
+
+.nested-form{
+  margin-top:16px;
+  padding-top:16px;
+  border-top:1px solid var(--line-2);
+}
+
+.hidden{
+  display:none !important;
+}
+
+@media (max-width: 860px){
+  .tabbar{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media (max-width: 560px){
+  .tabbar{
+    grid-template-columns:1fr;
+  }
+
+  .tab{
+    min-height:46px;
+  }
+
+  .auth-card{
+    padding:18px;
+  }
+
+  .field input,
+  .field select,
+  .btn{
+    min-height:50px;
+  }
+}
