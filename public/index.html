@@ -7,13 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
     <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Poppins', 'sans-serif'] }, colors: { primary: '#5b83e8', secondary: '#f4f6f9' } } } }</script>
     <style>
-        body { background-color: #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: #e2e8f0; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; font-family: 'Poppins', sans-serif;}
         .input-group input:focus { outline: none; border-color: #5b83e8; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -58,7 +57,7 @@
                         <i class="fa-solid fa-eye-slash absolute right-4 text-gray-400 cursor-pointer" onclick="window.toggleVis('logPw', this)"></i>
                     </div>
                     
-                    <div class="flex justify-between items-center text-sm">
+                    <div class="flex justify-between items-center text-sm my-2">
                         <div class="flex gap-2">
                             <a href="#" onclick="window.showView('view-login-otp')" class="text-primary font-medium hover:underline text-xs cursor-pointer">Login OTP</a>
                             <span class="text-gray-300">|</span>
@@ -66,13 +65,16 @@
                         </div>
                         <a href="#" onclick="window.showView('view-forgot')" class="text-gray-500 hover:text-primary text-xs cursor-pointer">Lupa Password?</a>
                     </div>
-                    <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold hover:bg-blue-600 transition-colors shadow-lg mt-4 cursor-pointer">Masuk</button>
                     
-                    <div class="mt-8 text-center">
+                    <div id="turnstile-login" class="flex justify-center my-2"></div>
+
+                    <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold hover:bg-blue-600 transition-colors shadow-lg mt-2 cursor-pointer">Masuk</button>
+                    
+                    <div class="mt-6 text-center">
                         <p class="text-xs text-gray-500 mb-4">atau masuk dengan sosial media</p>
                         <div class="flex justify-center gap-4 flex-wrap">
                             <div id="g_id_onload"
-                                 data-client_id="GANTI_DENGAN_GOOGLE_CLIENT_ID_ANDA.apps.googleusercontent.com"
+                                 data-client_id="733506449291-84jlauv0mircq15p0mkn6vud379opmhk.apps.googleusercontent.com"
                                  data-context="signin"
                                  data-ux_mode="popup"
                                  data-callback="handleGoogleLogin"
@@ -80,9 +82,9 @@
                             </div>
                             <div class="g_id_signin" data-type="icon" data-shape="circle" data-theme="outline" data-size="large"></div>
                             
-                            <button type="button" class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 cursor-pointer"><i class="fa-brands fa-facebook-f text-blue-600"></i></button>
-                            <button type="button" class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 cursor-pointer"><i class="fa-brands fa-instagram text-pink-600"></i></button>
-                            <button type="button" class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 cursor-pointer"><i class="fa-brands fa-tiktok text-black"></i></button>
+                            <button type="button" onclick="window.doOAuthLogin('facebook')" class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 cursor-pointer"><i class="fa-brands fa-facebook-f text-blue-600"></i></button>
+                            <button type="button" onclick="window.doOAuthLogin('instagram')" class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 cursor-pointer"><i class="fa-brands fa-instagram text-pink-600"></i></button>
+                            <button type="button" onclick="window.doOAuthLogin('tiktok')" class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 cursor-pointer"><i class="fa-brands fa-tiktok text-black"></i></button>
                         </div>
                     </div>
                 </form>
@@ -111,55 +113,67 @@
                     </div>
                     <div class="input-group relative bg-secondary rounded-lg flex items-center px-4 py-3 border border-gray-200">
                         <i class="fa-solid fa-phone text-gray-400 w-5"></i>
-                        <input type="tel" id="reg-phone" inputmode="numeric" pattern="[0-9]*" placeholder="Nomor WhatsApp" class="bg-transparent w-full ml-3 text-sm focus:outline-none" required>
+                        <input type="tel" id="reg-phone" inputmode="numeric" pattern="[0-9]*" oninput="window.enforceNumeric(this)" placeholder="Nomor WhatsApp" class="bg-transparent w-full ml-3 text-sm focus:outline-none" required>
                     </div>
                     <div class="input-group relative bg-secondary rounded-lg flex items-center px-4 py-3 border border-gray-200">
                         <i class="fa-solid fa-lock text-gray-400 w-5"></i>
                         <input type="password" id="reg-password" placeholder="Password" class="bg-transparent w-full ml-3 text-sm pr-10 focus:outline-none" required>
                         <i class="fa-solid fa-eye-slash absolute right-4 text-gray-400 cursor-pointer" onclick="window.toggleVis('reg-password', this)"></i>
                     </div>
+                    
+                    <div id="turnstile-register" class="flex justify-center my-1"></div>
+
                     <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold shadow-lg cursor-pointer">Daftar Sekarang</button>
                 </form>
             </div>
 
-            <div id="view-social-complete" class="w-full max-w-md fade-in hidden">
-                <button type="button" onclick="window.switchMode('login')" class="text-gray-400 hover:text-primary mb-4 flex items-center gap-2 text-sm cursor-pointer"><i class="fa-solid fa-arrow-left"></i> Batal</button>
-                <div class="flex items-center gap-3 mb-6 bg-secondary p-4 rounded-xl border border-gray-100">
-                    <i id="social-icon" class="fa-brands fa-google text-3xl text-red-500"></i>
-                    <div>
-                        <h2 class="text-xl font-bold">Lengkapi Profil Anda</h2>
-                        <p id="social-email-display" class="text-xs text-gray-500"></p>
-                    </div>
-                </div>
-                <form onsubmit="window.handleSocialCompleteSubmit(); return false;" class="space-y-4">
-                    <input type="hidden" id="social-temp-token">
-                    
-                    <div class="flex bg-secondary rounded-lg p-1 border border-gray-200">
-                        <label class="flex-1 text-center">
-                            <input type="radio" name="social-role" value="talent" class="peer hidden" checked>
-                            <div class="py-2 text-sm font-medium text-gray-500 rounded-md cursor-pointer peer-checked:bg-white peer-checked:text-primary">Talent</div>
-                        </label>
-                        <label class="flex-1 text-center">
-                            <input type="radio" name="social-role" value="client" class="peer hidden">
-                            <div class="py-2 text-sm font-medium text-gray-500 rounded-md cursor-pointer peer-checked:bg-white peer-checked:text-primary">Client</div>
-                        </label>
-                    </div>
-                    
-                    <div class="input-group relative bg-gray-100 rounded-lg flex items-center px-4 py-3 opacity-70 border border-gray-200">
-                        <i class="fa-solid fa-user text-gray-500 w-5"></i>
-                        <input type="text" id="social-name" disabled class="bg-transparent w-full ml-3 text-sm text-gray-600 focus:outline-none">
-                    </div>
+            <div id="view-forgot" class="w-full max-w-md fade-in hidden">
+                <button type="button" onclick="window.switchMode('login')" class="text-gray-400 hover:text-primary mb-6 flex items-center gap-2 text-sm cursor-pointer"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
+                <h2 class="text-3xl font-bold mb-2">Lupa Password?</h2>
+                <p class="text-sm text-gray-500 mb-8">Masukkan Email atau No HP Anda. Kami akan mengirimkan kode OTP.</p>
+                <form onsubmit="window.handleForgotSubmit(); return false;" class="space-y-4">
                     <div class="input-group relative bg-secondary rounded-lg flex items-center px-4 py-3 border border-gray-200">
-                        <i class="fa-solid fa-phone text-gray-400 w-5"></i>
-                        <input type="tel" id="social-phone" inputmode="numeric" pattern="[0-9]*" placeholder="Nomor WhatsApp" class="bg-transparent w-full ml-3 text-sm focus:outline-none" required>
+                        <i class="fa-solid fa-id-card text-gray-400 w-5"></i>
+                        <input type="text" id="forgot-id" placeholder="Email / No HP" class="bg-transparent w-full ml-3 text-sm focus:outline-none" required>
                     </div>
-                    
-                    <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold shadow-lg cursor-pointer">Selesaikan Pendaftaran</button>
+                    <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold shadow-lg cursor-pointer">Kirim Kode Pemulihan</button>
+                </form>
+            </div>
+
+            <div id="view-login-otp" class="w-full max-w-md fade-in hidden">
+                <button type="button" onclick="window.switchMode('login')" class="text-gray-400 hover:text-primary mb-6 flex items-center gap-2 text-sm cursor-pointer"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
+                <h2 class="text-3xl font-bold mb-2">Login via OTP</h2>
+                <p class="text-sm text-gray-500 mb-8">Kode OTP akan dikirimkan ke Email atau Nomor HP Anda.</p>
+                <form onsubmit="window.requestLoginOtp(); return false;" class="space-y-4">
+                    <div class="input-group relative bg-secondary rounded-lg flex items-center px-4 py-3 border border-gray-200">
+                        <i class="fa-solid fa-user text-gray-400 w-5"></i>
+                        <input type="text" id="req-otp-id" placeholder="Email / No HP" class="bg-transparent w-full ml-3 text-sm focus:outline-none" required>
+                    </div>
+                    <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold shadow-lg cursor-pointer">Kirim Kode OTP</button>
+                </form>
+            </div>
+
+            <div id="view-verify-otp" class="w-full max-w-md fade-in hidden">
+                <button type="button" onclick="window.switchMode('login')" class="text-gray-400 hover:text-primary mb-6 flex items-center gap-2 text-sm cursor-pointer"><i class="fa-solid fa-arrow-left"></i> Batal</button>
+                <h2 class="text-3xl font-bold mb-2">Verifikasi OTP</h2>
+                <p class="text-sm text-gray-500 mb-8 text-center">Masukkan 6 digit kode dari Kontak Anda.</p>
+                <form onsubmit="window.verifyOtp(); return false;" class="space-y-4">
+                    <input type="hidden" id="otp-identifier">
+                    <input type="hidden" id="otp-purpose">
+                    <div class="input-group relative bg-secondary rounded-lg flex items-center px-4 py-3 border border-gray-200">
+                        <i class="fa-solid fa-message text-gray-400 w-5"></i>
+                        <input type="text" id="otp-code" inputmode="numeric" pattern="[0-9]*" oninput="window.enforceNumeric(this)" placeholder="0 0 0 0 0 0" maxlength="6" class="bg-transparent w-full ml-3 text-center tracking-[0.5em] font-bold text-lg focus:outline-none" required>
+                    </div>
+                    <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold shadow-lg cursor-pointer">Verifikasi & Lanjut</button>
+                    <div class="text-center mt-4">
+                        <p class="text-sm text-gray-500">Kirim ulang dalam <span id="otp-timer" class="font-bold text-primary">30</span> detik</p>
+                        <button type="button" id="btn-resend-otp" onclick="window.resendOtp()" class="text-primary font-medium text-sm mt-2 hidden hover:underline cursor-pointer">Kirim Ulang OTP</button>
+                    </div>
                 </form>
             </div>
 
             <div id="view-login-pin" class="w-full max-w-md fade-in hidden">
-                <button type="button" onclick="window.showView('view-login')" class="text-gray-400 hover:text-primary mb-6 flex items-center gap-2 text-sm cursor-pointer"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
+                <button type="button" onclick="window.switchMode('login')" class="text-gray-400 hover:text-primary mb-6 flex items-center gap-2 text-sm cursor-pointer"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
                 <h2 class="text-3xl font-bold mb-2">Login dengan PIN</h2>
                 <p class="text-sm text-gray-500 mb-8">Masukkan identitas dan PIN 6 digit Anda.</p>
                 <form onsubmit="window.doLoginPin(); return false;" class="space-y-4">
@@ -169,15 +183,43 @@
                     </div>
                     <div class="input-group relative bg-secondary rounded-lg flex items-center px-4 py-3 border border-gray-200">
                         <i class="fa-solid fa-key text-gray-400 w-5"></i>
-                        <input type="password" id="logPinCode" inputmode="numeric" pattern="[0-9]*" placeholder="6 Digit PIN" maxlength="6" class="bg-transparent w-full ml-3 text-center tracking-[0.5em] font-bold text-lg focus:outline-none" required>
+                        <input type="password" id="logPinCode" inputmode="numeric" pattern="[0-9]*" oninput="window.enforceNumeric(this)" placeholder="6 Digit PIN" maxlength="6" class="bg-transparent w-full ml-3 text-center tracking-[0.5em] font-bold text-lg pr-8 focus:outline-none" required>
+                        <i class="fa-solid fa-eye-slash absolute right-4 text-gray-400 cursor-pointer" onclick="window.toggleVis('logPinCode', this)"></i>
                     </div>
+                    <div id="turnstile-pin" class="flex justify-center my-2"></div>
                     <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold shadow-lg cursor-pointer">Masuk ke Dashboard</button>
                 </form>
             </div>
 
+            <div id="view-create-pin" class="w-full max-w-md fade-in hidden">
+                <h2 class="text-2xl font-bold text-center mb-2">Buat PIN Keamanan</h2>
+                <p class="text-sm text-gray-500 text-center mb-8">Buat 6 digit PIN untuk transaksi dan login instan.</p>
+                <form onsubmit="window.handleCreatePin(); return false;" class="space-y-4">
+                    <input type="hidden" id="pin-identifier">
+                    <div class="input-group relative bg-secondary rounded-lg flex items-center px-4 py-3 border border-gray-200">
+                        <i class="fa-solid fa-key text-gray-400 w-5"></i>
+                        <input type="password" id="new-pin" inputmode="numeric" pattern="[0-9]*" oninput="window.enforceNumeric(this)" placeholder="6 Digit PIN" maxlength="6" class="bg-transparent w-full ml-3 text-center tracking-[0.5em] font-bold pr-8 focus:outline-none" required>
+                        <i class="fa-solid fa-eye-slash absolute right-4 text-gray-400 cursor-pointer" onclick="window.toggleVis('new-pin', this)"></i>
+                    </div>
+                    <div class="input-group relative bg-secondary rounded-lg flex items-center px-4 py-3 border border-gray-200">
+                        <i class="fa-solid fa-check-circle text-gray-400 w-5"></i>
+                        <input type="password" id="confirm-pin" inputmode="numeric" pattern="[0-9]*" oninput="window.enforceNumeric(this)" placeholder="Ulangi PIN" maxlength="6" class="bg-transparent w-full ml-3 text-center tracking-[0.5em] font-bold pr-8 focus:outline-none" required>
+                        <i class="fa-solid fa-eye-slash absolute right-4 text-gray-400 cursor-pointer" onclick="window.toggleVis('confirm-pin', this)"></i>
+                    </div>
+                    <button type="submit" class="w-full bg-primary text-white rounded-lg py-3 font-semibold shadow-lg cursor-pointer">Simpan PIN & Selesai</button>
+                </form>
             </div>
+
+        </div>
     </div>
 
     <script type="module" src="./assets/JS/sso_auth_ui.js"></script>
+    <script>
+        // Fungsi pemicu OAuth Tradisional
+        window.doOAuthLogin = function(provider) {
+            // Kita arahkan browser ke endpoint backend yang akan memicu OAuth Flow
+            window.location.href = `/api/auth/oauth/${provider}`;
+        }
+    </script>
 </body>
 </html>
