@@ -13,19 +13,38 @@ window.showToast = function(message, type = 'success', duration = 4000) {
     container.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);
 }
 
+// FUNGSI SWITCH PANEL YANG SUDAH DIPERBAIKI (TIDAK PERLU REFRESH)
 window.showView = function(target) {
-    allViews.forEach(v => document.getElementById(v)?.classList.add('hidden')); document.getElementById(target)?.classList.remove('hidden');
-    if(target !== 'view-login' && target !== 'view-register') document.getElementById('blue-panel')?.classList.add('hidden'); else document.getElementById('blue-panel')?.classList.remove('hidden');
+    allViews.forEach(v => { const el = document.getElementById(v); if(el) el.classList.add('hidden'); });
+    const targetEl = document.getElementById(target); if(targetEl) targetEl.classList.remove('hidden');
     
-    // Setel ulang UI Dinamis
-    if(target === 'view-login-otp') { document.getElementById('single-id-title').innerText = "Login via OTP"; document.getElementById('single-id-desc').innerText = "Kami akan mengirimkan OTP (Berlaku 3 Menit)."; document.getElementById('single-id-purpose').value = "login"; document.getElementById('single-id-btn').innerText = "Kirim OTP"; window.showView('view-input-id-only'); }
-    if(target === 'view-forgot') { document.getElementById('single-id-title').innerText = "Lupa Password"; document.getElementById('single-id-desc').innerText = "Kami akan mengirimkan Link Reset Rahasia ke Email Anda."; document.getElementById('single-id-purpose').value = "reset"; document.getElementById('single-id-btn').innerText = "Kirim Link Reset"; window.showView('view-input-id-only'); }
+    const bp = document.getElementById('blue-panel');
+    if(target !== 'view-login' && target !== 'view-register') {
+        if(window.innerWidth < 768 && bp) bp.classList.add('hidden');
+    } else {
+        if(bp) bp.classList.remove('hidden');
+    }
+
+    const tTitle = document.getElementById('single-id-title');
+    const tDesc = document.getElementById('single-id-desc');
+    const tPurp = document.getElementById('single-id-purpose');
+    const tBtn = document.getElementById('single-id-btn');
+
+    if(target === 'view-login-otp' && tTitle) { tTitle.innerText = "Login via OTP"; tDesc.innerText = "Kami akan mengirimkan OTP (Berlaku 3 Menit)."; tPurp.value = "login"; tBtn.innerText = "Kirim OTP"; window.showView('view-input-id-only'); }
+    if(target === 'view-forgot' && tTitle) { tTitle.innerText = "Lupa Password"; tDesc.innerText = "Kami akan mengirimkan Link Reset Rahasia ke Email Anda."; tPurp.value = "reset"; tBtn.innerText = "Kirim Link Reset"; window.showView('view-input-id-only'); }
 }
 
 window.switchMode = function(mode) {
-    const mc = document.getElementById('main-container'), bp = document.getElementById('blue-panel'); bp?.classList.remove('hidden');
-    if (mode === 'register') { if(window.innerWidth > 767) { mc?.classList.add('flex-row-reverse'); bp?.classList.add('reverse'); } window.showView('view-register'); } 
-    else { mc?.classList.remove('flex-row-reverse'); bp?.classList.remove('reverse'); window.showView('view-login'); }
+    const mc = document.getElementById('main-container'), bp = document.getElementById('blue-panel');
+    const pLogin = document.getElementById('panel-content-login'), pReg = document.getElementById('panel-content-register');
+    if(bp) bp.classList.remove('hidden');
+    if (mode === 'register') {
+        if(window.innerWidth > 767) { if(mc) mc.classList.add('flex-row-reverse'); if(bp) bp.classList.add('reverse'); }
+        if(pLogin) pLogin.classList.add('hidden'); if(pReg) pReg.classList.remove('hidden'); window.showView('view-register');
+    } else {
+        if(mc) mc.classList.remove('flex-row-reverse'); if(bp) bp.classList.remove('reverse');
+        if(pReg) pReg.classList.add('hidden'); if(pLogin) pLogin.classList.remove('hidden'); window.showView('view-login');
+    }
 }
 
 window.renderTurnstileWidgets = function() { if (!window.turnstile) return; ['turnstile-login', 'turnstile-register'].forEach(id => { const el = document.getElementById(id); if (el && !el.hasChildNodes()) window.turnstile.render(el, { sitekey: TURNSTILE_SITE_KEY, theme: 'light' }); }); }
@@ -51,9 +70,9 @@ function doRedirectCountdown(role, title = "Anda Sudah Login!") {
 
 window.doLogout = async function() { window.showToast("Logout...", "info"); await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = "/"; }
 
-// --- LOGIKA FORM ---
+// === LOGIKA API ===
 window.handleRegisterSubmit = async function() {
-    const ts = document.querySelector('#turnstile-register [name="cf-turnstile-response"]')?.value; if(!ts) return window.showToast("Centang Captcha", "error");
+    const ts = document.querySelector('#turnstile-register [name="cf-turnstile-response"]')?.value; if(!ts && window.turnstile) return window.showToast("Centang Captcha", "error");
     if(document.getElementById('reg-pass').value.length < 8) return window.showToast("Password minimal 8 karakter", "error");
     window.showToast("Memproses pendaftaran...", "info");
     const res = await sendApi('register', { fullName: document.getElementById('reg-user').value, email: document.getElementById('reg-email').value, phone: document.getElementById('reg-phone').value, password: document.getElementById('reg-pass').value, role: document.querySelector('input[name="reg-role"]:checked').value, turnstile_token: ts });
@@ -63,28 +82,28 @@ window.handleRegisterSubmit = async function() {
 
 window.submitSingleId = async function() {
     const id = document.getElementById('single-id-input').value; const purp = document.getElementById('single-id-purpose').value;
-    window.showToast("Memproses permintaan...", "info");
-    const res = await sendApi('request-reset', { identifier: id }); // Memanggil API (Fungsinya digabung, request-reset & request-otp di backend pakai request-otp atau request-reset)
-    
-    // Perbaikan: Pakai request-otp untuk OTP, request-reset untuk Link
+    window.showToast("Meminta...", "info");
     const endpoint = purp === 'reset' ? 'request-reset' : 'request-otp';
-    const finalRes = await sendApi(endpoint, { identifier: id, purpose: purp });
+    const res = await sendApi(endpoint, { identifier: id, purpose: purp });
 
-    if(finalRes.status === 'ok') {
+    if(res.status === 'ok') {
         if(purp === 'reset') { window.showToast("Sukses!", "success"); document.getElementById('msg-email-desc').innerText = "Link Rahasia untuk Reset Password (berlaku 30 menit) telah dikirim ke email Anda."; window.showView('view-msg-email'); } 
         else { window.showToast("OTP Terkirim!", "success"); document.getElementById('otp-identifier').value = id; document.getElementById('otp-purpose').value = purp; document.getElementById('otp-target-display').innerText = id; window.showView('view-otp-verify'); startOtpTimer(); }
-    } else window.showToast(finalRes.message, "error");
+    } else window.showToast(res.message, "error");
 }
 
+// PERBAIKAN: Validasi Password Baru vs Konfirmasi
 window.submitNewPassword = async function() {
-    const token = document.getElementById('reset-token-hidden').value; const newPass = document.getElementById('new-pass').value;
+    const token = document.getElementById('reset-token-hidden').value; 
+    const newPass = document.getElementById('new-pass').value;
+    const confPass = document.getElementById('confirm-new-pass').value;
     if(newPass.length < 8) return window.showToast("Minimal 8 karakter", "error");
+    if(newPass !== confPass) return window.showToast("Password tidak cocok", "error");
     window.showToast("Menyimpan password baru...", "info");
     const res = await sendApi('reset-password', { token: token, new_password: newPass });
     if(res.status === 'ok') { window.showToast("Password berhasil diubah!", "success"); setTimeout(() => window.switchMode('login'), 2000); } else window.showToast(res.message, "error");
 }
 
-// PIN FLOW
 window.checkPinStatus = async function() {
     const id = document.getElementById('pin-check-id').value; window.showToast("Mengecek identitas...", "info");
     const res = await sendApi('check-pin', { identifier: id });
@@ -95,7 +114,7 @@ window.checkPinStatus = async function() {
 }
 
 window.requestPinOtp = async function() {
-    const p1 = document.getElementById('new-pin').value, p2 = document.getElementById('confirm-pin').value;
+    const p1 = document.getElementById('new-pin-setup').value, p2 = document.getElementById('confirm-pin-setup').value;
     if(p1.length !== 6 || p1 !== p2) return window.showToast("PIN harus 6 digit dan cocok.", "error");
     const id = document.getElementById('pin-setup-identifier').value; window.showToast("Meminta OTP Keamanan...", "info");
     const res = await sendApi('request-otp', { identifier: id, purpose: 'setup-pin' });
@@ -111,11 +130,8 @@ window.loginWithPin = async function() {
 window.submitOtp = async function() {
     const id = document.getElementById('otp-identifier').value, purp = document.getElementById('otp-purpose').value, code = document.getElementById('otp-code').value;
     const endpoint = purp === 'login' ? 'login-otp' : 'setup-pin';
-    
-    // Tambahkan PIN baru jika tujuannya setup-pin
     const payload = { identifier: id, otp: code };
-    if (purp === 'setup-pin') payload.new_pin = document.getElementById('new-pin').value;
-
+    if (purp === 'setup-pin') payload.new_pin = document.getElementById('new-pin-setup').value;
     window.showToast("Memverifikasi...", "info");
     const res = await sendApi(endpoint, payload);
     if(res.status === 'ok') { clearInterval(otpInterval); window.showToast("Akses Diberikan!", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
@@ -127,38 +143,47 @@ window.resendOtp = async function() {
     if(res.status === 'ok') { window.showToast("Terkirim ulang", "success"); startOtpTimer(); } else window.showToast(res.message, "error");
 }
 
-// ROUTER AWAL BROWSER
+window.handleRegularLogin = async function() {
+    const ts = document.querySelector('#turnstile-login [name="cf-turnstile-response"]')?.value; if(!ts && window.turnstile) return window.showToast("Harap centang Captcha", "error");
+    window.showToast("Memverifikasi...", "info");
+    const res = await sendApi('login-password', { identifier: document.getElementById('login-id').value, password: document.getElementById('login-pass').value, turnstile_token: ts });
+    window.resetTurnstile();
+    if(res.status === 'ok') { window.showToast("Login Berhasil!", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
+}
+
+// GOOGLE FLOW
+window.handleGoogleLogin = async function(response) {
+    window.showToast("Memverifikasi Google...", "info");
+    const res = await sendApi('google-login', { credential: response.credential });
+    if(res.status === 'ok') {
+        if(res.is_new) { window.showToast("Satu langkah lagi. Pilih Role Anda.", "info"); document.getElementById('social-temp-token').value = res.temp_token; document.getElementById('blue-panel')?.classList.add('opacity-0', 'pointer-events-none'); window.showView('view-social-role'); } 
+        else { window.showToast("Login Berhasil! Mengalihkan...", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); }
+    } else window.showToast(res.message, "error");
+}
+
+window.processSocialRegistration = async function() {
+    const role = document.querySelector('input[name="soc-role"]:checked').value; const temp = document.getElementById('social-temp-token').value;
+    window.showToast("Menyimpan data...", "info");
+    const res = await sendApi('social-complete', { temp_token: temp, role: role });
+    if(res.status === 'ok') { window.showToast("Sukses! Mengalihkan...", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
+}
+
+// ROUTER UTAMA
 document.addEventListener('DOMContentLoaded', async () => { 
     setTimeout(window.renderTurnstileWidgets, 500); 
-    
     const urlParams = new URLSearchParams(window.location.search);
     
-    // 1. CEK MAGIC LINK AKTIVASI
     if (urlParams.get('activation_token')) {
-        window.showToast("Memverifikasi Link Aktivasi...", "info");
+        window.showToast("Memverifikasi Aktivasi...", "info");
         const res = await sendApi('verify-activation', { token: urlParams.get('activation_token') });
-        if(res.status === 'ok') { doRedirectCountdown(res.role, "Aktivasi Berhasil!"); window.history.replaceState({}, document.title, window.location.pathname); return; } 
-        else { window.showToast(res.message, "error"); window.history.replaceState({}, document.title, window.location.pathname); }
+        if(res.status === 'ok') { doRedirectCountdown(res.role, "Aktivasi Berhasil!"); window.history.replaceState({}, document.title, window.location.pathname); return; } else { window.showToast(res.message, "error"); window.history.replaceState({}, document.title, window.location.pathname); }
     }
     
-    // 2. CEK MAGIC LINK RESET PASSWORD
     if (urlParams.get('reset_token')) {
-        document.getElementById('reset-token-hidden').value = urlParams.get('reset_token');
-        window.showView('view-reset-password');
-        window.history.replaceState({}, document.title, window.location.pathname); return;
+        document.getElementById('reset-token-hidden').value = urlParams.get('reset_token'); window.showView('view-reset-password'); window.history.replaceState({}, document.title, window.location.pathname); return;
     }
 
-    // 3. CEK SOCIAL REDIRECT
-    if (urlParams.get('new_social') === 'true') {
-        document.getElementById('social-temp-token').value = urlParams.get('temp_token'); window.showView('view-social-role');
-        window.history.replaceState({}, document.title, window.location.pathname); return;
-    }
-
-    // 4. CEK SESI LOGIN AKTIF
-    try {
-        const meRes = await fetch('/api/auth/me');
-        if (meRes.ok) { const data = await meRes.json(); doRedirectCountdown(data.user.role); return; }
-    } catch(e) {}
+    try { const meRes = await fetch('/api/auth/me'); if (meRes.ok) { const data = await meRes.json(); doRedirectCountdown(data.user.role); return; } } catch(e) {}
 });
 
 window.addEventListener('resize', () => { if(!document.getElementById('view-register')?.classList.contains('hidden') && window.innerWidth > 767) { document.getElementById('main-container')?.classList.add('flex-row-reverse'); document.getElementById('blue-panel')?.classList.add('reverse'); } });
