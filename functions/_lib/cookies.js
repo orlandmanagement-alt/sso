@@ -1,7 +1,8 @@
-const DOMAIN = ".orlandmanagement.com"; 
+const DOMAIN = ".orlandmanagement.com"; // HARUS DIAWALI TITIK agar berlaku untuk semua subdomain
 
 export function makeSessionCookie(sid, maxAgeSec = 259200) {
-  // PERUBAHAN KRUSIAL: SameSite=None agar Cookie bisa terbang antar subdomain via Fetch API
+  // SameSite=Lax aman untuk navigasi biasa, SameSite=None wajib jika cross-site fetch (butuh Secure)
+  // Kita gunakan None; Secure agar Fetch API dari portal talent/client bisa membawa cookie ini ke API
   return `sid=${sid}; Domain=${DOMAIN}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${maxAgeSec}`;
 }
 
