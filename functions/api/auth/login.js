@@ -23,5 +23,9 @@ export async function onRequestPost({ request, env }) {
 
   const cookieStr = makeSessionCookie(sid);
 
-  return jsonOk({ message: "Login Sukses", role: user.role, redirect_url: "https://dashboard.orlandmanagement.com" }, cookieStr);
+  // PERBAIKAN: Pasang header Set-Cookie dengan benar
+  const response = jsonOk({ message: "Login Sukses", role: user.role, redirect_url: "https://dashboard.orlandmanagement.com" });
+  response.headers.set("Set-Cookie", cookieStr);
+  
+  return response;
 }
