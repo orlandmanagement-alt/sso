@@ -162,11 +162,50 @@ window.handleGoogleLogin = async function(response) {
 }
 
 window.processSocialRegistration = async function() {
-    const role = document.querySelector('input[name="soc-role"]:checked').value; const temp = document.getElementById('social-temp-token').value;
-    window.showToast("Menyimpan data...", "info");
-    const res = await sendApi('social-complete', { temp_token: temp, role: role });
-    if(res.status === 'ok') { window.showToast("Sukses! Mengalihkan...", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
+    const roleEl = document.querySelector('input[name="soc-role"]:checked');
+    if(!roleEl) return window.showToast("Pilih peran Anda terlebih dahulu.", "error");
+    
+    // Ini menangkap respon is_new dari google-login
+    const urlParams = new URLSearchParams(window.location.search);
+    const payload = {
+        role: roleEl.value,
+        email: urlParams.get('email') || document.getElementById('soc-temp-email')?.value,
+        name: urlParams.get('name') || document.getElementById('soc-temp-name')?.value,
+        provider: 'google',
+        social_id: urlParams.get('social_id') || 'oauth2'
+    };
+
+    window.showToast("Menyiapkan Ruang Kerja...", "info");
+    const res = await sendApi('social-complete', payload);
+
+    if(res.status === 'ok') { 
+        window.showToast("Sukses! Membuka Portal...", "success"); 
+        setTimeout(() => window.location.href = res.redirect_url, 1000); 
+    } else {
+        window.showToast(res.message, "error");
+    }
 }
+
+// === PASTIKAN SAAT GOOGLE LOGIN MENGIRIM PARAMETER INI ===
+window.handleGoogleLogin = async function(response) {
+    window.showToast("Memverifikasi Google...", "info");
+    const res = await sendApi('google-login', { credential: response.credential });
+    if(res.status === 'ok') {
+        if(res.is_new) { 
+            window.showToast("Satu langkah lagi. Pilih Role Anda.", "info"); 
+            // Ubah URL secara background tanpa refresh agar fungsi processSocialRegistration bisa menangkap datanya
+            const newUrl = `/?social_status=incomplete&email=${encodeURIComponent(res.email)}&name=${encodeURIComponent(res.name)}&provider=google&social_id=${res.social_id}`;
+            window.history.pushState({path:newUrl},'',newUrl);
+            document.getElementById('blue-panel')?.classList.add('opacity-0', 'pointer-events-none'); 
+            window.showView('view-social-role'); 
+        } 
+        else { 
+            window.showToast("Login Berhasil! Mengalihkan...", "success"); 
+            setTimeout(() => window.location.href = res.redirect_url, 1000); 
+        }
+    } else window.showToast(res.message, "error");
+}
+
 
 // ROUTER UTAMA
 document.addEventListener('DOMContentLoaded', async () => { 
