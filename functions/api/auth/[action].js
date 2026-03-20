@@ -90,11 +90,18 @@ export async function onRequestPost({ request, env, params }) {
     }
 
     if (action === "social-complete") {
-      let decoded; try { decoded = JSON.parse(atob(body.temp_token)); } catch(e) { return jsonError("Tiket tidak valid."); }
+      if (!body.email || !body.role) return jsonError("Data tidak lengkap.", 400);
       const newUserId = crypto.randomUUID();
-      await env.DB.prepare("INSERT INTO users (id, full_name, email, role, status, created_at) VALUES (?,?,?,?,'active',?)").bind(newUserId, decoded.name, decoded.email, body.role, now).run();
+      
+      // Simpan User Social Login (Otomatis ACTIVE)
+      await env.DB.prepare("INSERT INTO users (id, full_name, email, role, social_provider, social_id, status, created_at) VALUES (?,?,?,?,?,?,'active',?)")
+        .bind(newUserId, body.name || 'User', body.email, body.role, body.provider || null, body.social_id || null, now).run();
+      
+      // Buat Sesi Login Otomatis
       const sid = crypto.randomUUID();
-      await env.DB.prepare("INSERT INTO sessions (id, user_id, role, created_at, expires_at) VALUES (?,?,?,?,?)").bind(sid, newUserId, body.role, now, now + SESSION_EXPIRY).run();
+      await env.DB.prepare("INSERT INTO sessions (id, user_id, role, created_at, expires_at) VALUES (?,?,?,?,?)")
+        .bind(sid, newUserId, body.role, now, now + SESSION_EXPIRY).run();
+      
       return jsonOk({ message: "Pendaftaran Sukses!", redirect_url: getPortalUrl(body.role) }, makeSessionCookie(sid));
     }
 
