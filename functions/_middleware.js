@@ -1,7 +1,6 @@
 export async function onRequest(context) {
   const request = context.request;
   const origin = request.headers.get("Origin") || "https://talent.orlandmanagement.com";
-  
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -14,7 +13,6 @@ export async function onRequest(context) {
       }
     });
   }
-
   const response = await context.next();
   const newResponse = new Response(response.body, response);
   newResponse.headers.set("Access-Control-Allow-Origin", origin);
