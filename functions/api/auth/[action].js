@@ -2,7 +2,7 @@ import { jsonOk, jsonError } from "../../_lib/response.js";
 import { hashData } from "../../_lib/crypto.js";
 import { makeSessionCookie, clearSessionCookie, parseCookies } from "../../_lib/cookies.js";
 
-const TURNSTILE_SECRET = "0x4AAAAAACs8dTjOU5UcntgtIKPw4lJznNg"; // Ganti jika sudah punya
+const TURNSTILE_SECRET = "0x4AAAAAACs8dTjOU5UcntgtIKPw4lJznNg"; // Sesuaikan jika perlu
 const SESSION_EXPIRY = 259200;
 
 async function verifyTurnstile(token, ip) {
@@ -15,6 +15,37 @@ async function verifyTurnstile(token, ip) {
         const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: formData }); 
         return (await res.json()).success; 
     } catch (e) { return false; }
+}
+
+async function sendMail(env, toEmail, token, purpose) {
+    const host = "https://sso.orlandmanagement.com"; 
+    let subject, html;
+
+    if (purpose === 'activation') {
+        subject = "Aktivasi Akun Orland Management";
+        html = `<div style="font-family:sans-serif; padding:20px; color:#333;"><h2>Satu Langkah Lagi!</h2><p>Klik link ini untuk mengaktifkan akun Anda (24 Jam):</p><br><a href="${host}/?activation_token=${token}" style="background-color:#2563eb; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">Aktifkan Akun Saya</a></div>`;
+    } else if (purpose === 'reset') {
+        subject = "Reset Password Orland Management";
+        html = `<div style="font-family:sans-serif; padding:20px; color:#333;"><h2>Reset Password</h2><p>Link ini berlaku 30 Menit.</p><br><a href="${host}/?reset_token=${token}" style="background-color:#ef4444; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">Reset Password</a></div>`;
+    } else {
+        subject = "Kode OTP Orland Management";
+        html = `<div style="font-family:sans-serif; padding:20px; color:#333;"><h2>Verifikasi Keamanan</h2><p>Berikut kode OTP Anda (Berlaku 3 Menit):</p><h1 style="letter-spacing:5px; color:#2563eb;">${token}</h1></div>`;
+    }
+
+    try {
+        const mcData = {
+            personalizations: [{ to: [{ email: toEmail }] }],
+            from: { email: "no-reply@orlandmanagement.com", name: "Orland Security" },
+            subject: subject,
+            content: [{ type: "text/html", value: html }]
+        };
+        const mcRes = await fetch("https://api.mailchannels.net/tx/v1/send", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mcData)
+        });
+        return { success: mcRes.ok || mcRes.status === 202 };
+    } catch(e) {
+        return { success: false };
+    }
 }
 
 function getPortalUrl(role) { return role === 'client' ? 'https://client.orlandmanagement.com' : 'https://talent.orlandmanagement.com'; }
@@ -51,50 +82,65 @@ export async function onRequestPost({ request, env, params }) {
             return jsonOk({ status: "ok", message: "Logout Sukses" }, clearSessionCookie());
         }
 
-        // 2. REGISTER BASIC
+        // 2. REGISTER
         if (action === "register") {
             const isHuman = await verifyTurnstile(body.turnstile_token, clientIp);
             if(!isHuman) return jsonError("Verifikasi keamanan gagal.");
             const existingUser = await findUser(cleanEmail);
             if (existingUser) return jsonError("Email sudah terdaftar.");
+            
             const hashedPw = await hashData(body.password);
             await env.DB.prepare("INSERT INTO users (id, full_name, email, phone, role, password_hash, status, created_at) VALUES (?,?,?,?,?,?,'pending',?)")
                 .bind(crypto.randomUUID(), body.fullName, cleanEmail, body.phone, body.role, hashedPw, now).run();
-            return jsonOk({ status: "ok", message: "Registrasi Sukses!" });
+            
+            // SIMPAN TOKEN & KIRIM EMAIL AKTIVASI
+            const tokenUUID = crypto.randomUUID().replace(/-/g, '');
+            await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), cleanEmail, tokenUUID, 'activation', now + 86400).run();
+            await sendMail(env, cleanEmail, tokenUUID, 'activation');
+            
+            return jsonOk({ status: "ok", message: "Registrasi Sukses! Cek Email." });
         }
 
         // 3. AKTIVASI EMAIL
         if (action === "verify-activation") {
             const tokenRow = await env.DB.prepare("SELECT * FROM otp_requests WHERE code=? AND purpose='activation' AND expires_at > ?").bind(body.token, now).first();
-            if(!tokenRow) return jsonError("Tautan Aktivasi tidak valid.");
+            if(!tokenRow) return jsonError("Tautan Aktivasi tidak valid/kadaluarsa.");
             await env.DB.prepare("UPDATE users SET status='active' WHERE email=?").bind(tokenRow.identifier).run();
+            await env.DB.prepare("DELETE FROM otp_requests WHERE id=?").bind(tokenRow.id).run();
+            
             const user = await findUser(tokenRow.identifier);
             const sid = crypto.randomUUID();
             await env.DB.prepare("INSERT INTO sessions (id, user_id, role, created_at, expires_at) VALUES (?,?,?,?,?)").bind(sid, user.id, user.role, now, now + SESSION_EXPIRY).run();
             return jsonOk({ status: "ok", role: user.role, redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
         }
 
-        // 4. LOGIN PASSWORD STANDARD
+        // 4. LOGIN PASSWORD
         if (action === "login-password") {
             const isHuman = await verifyTurnstile(body.turnstile_token, clientIp);
             if(!isHuman) return jsonError("Verifikasi keamanan gagal.");
             const user = await findUser(cleanIdentifier);
             if(!user) return jsonError("Kredensial salah.", 401);
-            if (user.locked_until && user.locked_until > now) return jsonError(`Akun terkunci.`, 429);
+            if (user.locked_until && user.locked_until > now) return jsonError(`Akun terkunci sementara.`, 429);
+            
             const hashInput = await hashData(body.password);
             if (user.password_hash !== hashInput) return jsonError("Password salah.", 401);
             if(user.status === 'pending') return jsonError("Akun belum diaktifkan.", 403);
+            
             const sid = crypto.randomUUID();
             await env.DB.prepare("INSERT INTO sessions (id, user_id, role, created_at, expires_at) VALUES (?,?,?,?,?)").bind(sid, user.id, user.role, now, now + SESSION_EXPIRY).run();
             return jsonOk({ status: "ok", redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
         }
 
-        // 5. REQUEST OTP UMUM (Login/Setup PIN)
+        // 5. REQUEST OTP UMUM
         if (action === "request-otp") {
             const user = await findUser(cleanIdentifier);
             if(!user) return jsonError("Akun tidak ditemukan.");
             const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+            
+            // SIMPAN & KIRIM EMAIL OTP
             await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), user.email, otp, body.purpose, now + 180).run();
+            await sendMail(env, user.email, otp, body.purpose);
+            
             return jsonOk({ status: "ok", message: "OTP Terkirim." });
         }
 
@@ -138,8 +184,12 @@ export async function onRequestPost({ request, env, params }) {
         if (action === "request-reset") {
             const user = await findUser(cleanIdentifier);
             if(!user) return jsonError("Akun tidak ditemukan.");
-            const tokenUUID = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+            const tokenUUID = crypto.randomUUID().replace(/-/g, '');
+            
+            // SIMPAN & KIRIM LINK RESET
             await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), user.email, tokenUUID, 'reset', now + 1800).run();
+            await sendMail(env, user.email, tokenUUID, 'reset');
+            
             return jsonOk({ status: "ok", message: "Link reset terkirim." });
         }
 
@@ -150,16 +200,12 @@ export async function onRequestPost({ request, env, params }) {
             const hashedPw = await hashData(body.new_password);
             await env.DB.prepare("UPDATE users SET password_hash=? WHERE email=?").bind(hashedPw, tokenRow.identifier).run();
             await env.DB.prepare("DELETE FROM otp_requests WHERE id=?").bind(tokenRow.id).run();
-            
-            const user = await findUser(tokenRow.identifier);
-            if (user) await env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(user.id).run();
             return jsonOk({ status: "ok", message: "Password berhasil diubah." });
         }
 
-        // 11. GOOGLE LOGIN (DECODE JWT GSI)
+        // 11. GOOGLE LOGIN
         if (action === "google-login") {
             try {
-                // Decode Payload dari JWT Google
                 const payloadBase64 = body.credential.split('.')[1];
                 const decodedPayload = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
                 const email = decodedPayload.email;
@@ -181,17 +227,14 @@ export async function onRequestPost({ request, env, params }) {
         if (action === "social-complete") {
             const existingUser = await env.DB.prepare("SELECT * FROM users WHERE email=?").bind(body.email).first();
             if (existingUser) return jsonError("Email sudah terdaftar.");
-            
             const userId = crypto.randomUUID();
-            // Bypass No HP dengan id sementara agar constraint UNIQUE tidak error
             await env.DB.prepare("INSERT INTO users (id, full_name, email, phone, role, social_provider, social_id, status, created_at) VALUES (?,?,?,?,?,?,?,?,?)")
                 .bind(userId, body.name, body.email, `social_${Date.now()}`, body.role, body.provider, body.social_id, 'active', now).run();
-            
             const sid = crypto.randomUUID();
             await env.DB.prepare("INSERT INTO sessions (id, user_id, role, created_at, expires_at) VALUES (?,?,?,?,?)").bind(sid, userId, body.role, now, now + SESSION_EXPIRY).run();
             return jsonOk({ status: "ok", redirect_url: getPortalUrl(body.role) }, makeSessionCookie(sid));
         }
 
-        return jsonError(`Aksi [${action}] tidak dikenal.`, 404);
+        return jsonError(`Aksi tidak dikenal.`, 404);
     } catch(e) { return jsonError("Server API Error", 500); }
 }

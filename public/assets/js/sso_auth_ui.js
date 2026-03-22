@@ -81,10 +81,46 @@ window.handleRegisterSubmit = async function() {
 window.submitSingleId = async function() {
     const id = document.getElementById('single-id-input').value; const purp = document.getElementById('single-id-purpose').value;
     window.showToast("Meminta...", "info");
-    const res = await sendApi('request-otp', { identifier: id, purpose: purp });
+    const endpoint = purp === 'reset' ? 'request-reset' : 'request-otp';
+    const res = await sendApi(endpoint, { identifier: id, purpose: purp });
     if(res.status === 'ok') {
-        window.showToast("Terkirim!", "success"); document.getElementById('otp-identifier').value = id; document.getElementById('otp-purpose').value = purp; document.getElementById('otp-target-display').innerText = id; window.showView('view-otp-verify'); startOtpTimer();
+        if(purp === 'reset') { window.showToast("Sukses!", "success"); document.getElementById('msg-email-desc').innerText = "Link Rahasia untuk Reset Password telah dikirim ke email Anda."; window.showView('view-msg-email'); } 
+        else { window.showToast("Terkirim!", "success"); document.getElementById('otp-identifier').value = id; document.getElementById('otp-purpose').value = purp; document.getElementById('otp-target-display').innerText = id; window.showView('view-otp-verify'); startOtpTimer(); }
     } else window.showToast(res.message, "error");
+}
+
+window.submitNewPassword = async function() {
+    const token = document.getElementById('reset-token-hidden').value; 
+    const newPass = document.getElementById('new-pass').value;
+    const confPass = document.getElementById('confirm-new-pass').value;
+    if(newPass.length < 8) return window.showToast("Minimal 8 karakter", "error");
+    if(newPass !== confPass) return window.showToast("Password tidak cocok", "error");
+    window.showToast("Menyimpan password baru...", "info");
+    const res = await sendApi('reset-password', { token: token, new_password: newPass });
+    if(res.status === 'ok') { window.showToast("Password berhasil diubah!", "success"); setTimeout(() => window.switchMode('login'), 2000); } else window.showToast(res.message, "error");
+}
+
+window.checkPinStatus = async function() {
+    const id = document.getElementById('pin-check-id').value; window.showToast("Mengecek identitas...", "info");
+    const res = await sendApi('check-pin', { identifier: id });
+    if(res.status === 'ok') {
+        if(res.has_pin) { document.getElementById('pin-login-identifier').value = res.email; document.getElementById('pin-input-email').innerText = res.email; window.showView('view-pin-input'); } 
+        else { document.getElementById('pin-setup-identifier').value = res.email; window.showView('view-pin-setup'); }
+    } else window.showToast(res.message, "error");
+}
+
+window.requestPinOtp = async function() {
+    const p1 = document.getElementById('new-pin-setup').value, p2 = document.getElementById('confirm-pin-setup').value;
+    if(p1.length !== 6 || p1 !== p2) return window.showToast("PIN harus 6 digit dan cocok.", "error");
+    const id = document.getElementById('pin-setup-identifier').value; window.showToast("Meminta OTP Keamanan...", "info");
+    const res = await sendApi('request-otp', { identifier: id, purpose: 'setup-pin' });
+    if(res.status === 'ok') { window.showToast("OTP Terkirim!", "success"); document.getElementById('otp-identifier').value = id; document.getElementById('otp-purpose').value = 'setup-pin'; document.getElementById('otp-target-display').innerText = id; window.showView('view-otp-verify'); startOtpTimer(); } else window.showToast(res.message, "error");
+}
+
+window.loginWithPin = async function() {
+    const id = document.getElementById('pin-login-identifier').value, pin = document.getElementById('pin-code').value; window.showToast("Verifikasi PIN...", "info");
+    const res = await sendApi('login-pin', { identifier: id, pin: pin });
+    if(res.status === 'ok') { window.showToast("Login Sukses!", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
 }
 
 window.submitOtp = async function() {
@@ -97,33 +133,60 @@ window.submitOtp = async function() {
     if(res.status === 'ok') { clearInterval(otpInterval); window.showToast("Akses Diberikan!", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
 }
 
+window.resendOtp = async function() {
+    const id = document.getElementById('otp-identifier').value, purp = document.getElementById('otp-purpose').value; window.showToast("Mengirim ulang...", "info");
+    const res = await sendApi('request-otp', { identifier: id, purpose: purp });
+    if(res.status === 'ok') { window.showToast("Terkirim ulang", "success"); startOtpTimer(); } else window.showToast(res.message, "error");
+}
+
 window.handleRegularLogin = async function() {
-    const ts = document.querySelector('#turnstile-login [name="cf-turnstile-response"]')?.value; if(!ts && window.turnstile) return window.showToast("Centang Captcha", "error");
+    const ts = document.querySelector('#turnstile-login [name="cf-turnstile-response"]')?.value; if(!ts && window.turnstile) return window.showToast("Harap centang Captcha", "error");
     window.showToast("Memverifikasi...", "info");
     const res = await sendApi('login-password', { identifier: document.getElementById('login-id').value, password: document.getElementById('login-pass').value, turnstile_token: ts });
     window.resetTurnstile();
     if(res.status === 'ok') { window.showToast("Login Berhasil!", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
 }
 
-// Hanya SATU fungsi handleGoogleLogin yang benar
 window.handleGoogleLogin = async function(response) {
     window.showToast("Memverifikasi Google...", "info");
     const res = await sendApi('google-login', { credential: response.credential });
     if(res.status === 'ok') {
         if(res.is_new) { 
-            window.showToast("Pilih Role Anda.", "info"); 
+            window.showToast("Satu langkah lagi. Pilih Role Anda.", "info"); 
             const newUrl = `/?social_status=incomplete&email=${encodeURIComponent(res.email)}&name=${encodeURIComponent(res.name)}&provider=google&social_id=${res.social_id}`;
             window.history.pushState({path:newUrl},'',newUrl);
             document.getElementById('blue-panel')?.classList.add('opacity-0', 'pointer-events-none'); 
             window.showView('view-social-role'); 
-        } else { 
-            window.showToast("Login Berhasil!", "success"); 
-            setTimeout(() => window.location.href = res.redirect_url, 1000); 
-        }
+        } 
+        else { window.showToast("Login Berhasil! Mengalihkan...", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); }
     } else window.showToast(res.message, "error");
+}
+
+window.processSocialRegistration = async function() {
+    const roleEl = document.querySelector('input[name="soc-role"]:checked');
+    if(!roleEl) return window.showToast("Pilih peran Anda terlebih dahulu.", "error");
+    const urlParams = new URLSearchParams(window.location.search);
+    const payload = { role: roleEl.value, email: urlParams.get('email'), name: urlParams.get('name'), provider: 'google', social_id: urlParams.get('social_id') };
+    window.showToast("Menyiapkan Ruang Kerja...", "info");
+    const res = await sendApi('social-complete', payload);
+    if(res.status === 'ok') { window.showToast("Sukses! Membuka Portal...", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
 }
 
 document.addEventListener('DOMContentLoaded', async () => { 
     setTimeout(window.renderTurnstileWidgets, 500); 
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (urlParams.get('activation_token')) {
+        window.showToast("Memverifikasi Aktivasi...", "info");
+        const res = await sendApi('verify-activation', { token: urlParams.get('activation_token') });
+        if(res.status === 'ok') { doRedirectCountdown(res.role, "Aktivasi Berhasil!"); window.history.replaceState({}, document.title, window.location.pathname); return; } else { window.showToast(res.message, "error"); window.history.replaceState({}, document.title, window.location.pathname); }
+    }
+    
+    if (urlParams.get('reset_token')) {
+        document.getElementById('reset-token-hidden').value = urlParams.get('reset_token'); window.showView('view-reset-password'); window.history.replaceState({}, document.title, window.location.pathname); return;
+    }
+
     try { const meRes = await fetch('/api/auth/me'); if (meRes.ok) { const data = await meRes.json(); doRedirectCountdown(data.user.role); return; } } catch(e) {}
 });
+
+window.addEventListener('resize', () => { if(!document.getElementById('view-register')?.classList.contains('hidden') && window.innerWidth > 767) { document.getElementById('main-container')?.classList.add('flex-row-reverse'); document.getElementById('blue-panel')?.classList.add('reverse'); } });
