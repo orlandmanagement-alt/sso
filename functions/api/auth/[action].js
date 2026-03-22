@@ -145,7 +145,7 @@ export async function onRequestPost({ request, env, params }) {
             return jsonOk({ status: "ok", role: user.role, redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
         }
 
-                    // 4. LOGIN PASSWORD
+        // 4. LOGIN PASSWORD
         if (action === "login-password") {
             const isHuman = await verifyTurnstile(body.turnstile_token, clientIp);
             if(!isHuman) return jsonError("Verifikasi keamanan gagal.");
@@ -164,21 +164,42 @@ export async function onRequestPost({ request, env, params }) {
                 return jsonError(`Password salah. (Sisa percobaan: ${5 - fails})`, 401);
             }
 
-            // PERBAIKAN: Jika masih pending, otomatis kirim ulang link aktivasi baru ke emailnya!
+            // ==========================================
+            // LOGIKA BARU: TOKEN 24 JAM TIDAK DIHAPUS
+            // ==========================================
             if(user.status === 'pending') {
-                const tokenUUID = crypto.randomUUID().replace(/-/g, '');
-                await env.DB.prepare("DELETE FROM otp_requests WHERE identifier=? AND purpose=?").bind(user.email, 'activation').run();
-                await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), user.email, tokenUUID, 'activation', now + 86400).run();
+                // 1. Cek apakah ada token aktivasi yang MENGENDAP dan MASIH HIDUP (belum 24 jam)
+                let activeTokenRow = await env.DB.prepare("SELECT * FROM otp_requests WHERE identifier=? AND purpose='activation' AND expires_at > ?").bind(user.email, now).first();
+                
+                let tokenUUID;
+                
+                if (activeTokenRow) {
+                    // Jika MASIH ADA, gunakan token yang sama persis! Jangan di-delete!
+                    tokenUUID = activeTokenRow.code;
+                } else {
+                    // Jika TIDAK ADA (atau sudah lewat 24 jam dan hancur otomatis), buat baru.
+                    tokenUUID = crypto.randomUUID().replace(/-/g, '');
+                    
+                    // Bersihkan sisa-sisa token kadaluarsa (Housekeeping)
+                    await env.DB.prepare("DELETE FROM otp_requests WHERE identifier=? AND purpose=?").bind(user.email, 'activation').run();
+                    
+                    // Simpan token baru dengan masa hidup 24 Jam (86400 detik)
+                    await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), user.email, tokenUUID, 'activation', now + 86400).run();
+                }
+                
+                // Kirimkan token via email (entah itu token yang masih hidup, atau token baru)
                 await sendMail(env, user.email, tokenUUID, 'activation');
                 
-                return jsonError("Akun belum aktif! Link aktivasi baru telah dikirim ke email Anda.", 403);
+                return jsonError("Akun belum aktif! Tautan aktivasi (berlaku 24 jam) telah dikirim ke email Anda.", 403);
             }
+            // ==========================================
             
             await env.DB.prepare("UPDATE users SET fail_count=0, locked_until=NULL WHERE id=?").bind(user.id).run();
             const sid = crypto.randomUUID();
             await env.DB.prepare("INSERT INTO sessions (id, user_id, role, created_at, expires_at) VALUES (?,?,?,?,?)").bind(sid, user.id, user.role, now, now + SESSION_EXPIRY).run();
             return jsonOk({ status: "ok", redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
         }
+
 
        // 5. REQUEST OTP UMUM
         if (action === "request-otp") {
