@@ -23,15 +23,45 @@ async function sendMail(env, toEmail, token, purpose) {
 
     if (purpose === 'activation') {
         subject = "Aktivasi Akun Orland Management";
-        html = `<div style="font-family:sans-serif; padding:20px; color:#333;"><h2>Satu Langkah Lagi!</h2><p>Klik link ini untuk mengaktifkan akun Anda (24 Jam):</p><br><a href="${host}/?activation_token=${token}" style="background-color:#2563eb; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">Aktifkan Akun Saya</a></div>`;
+        html = `<div style="font-family:sans-serif; padding:20px; color:#333;"><h2>Satu Langkah Lagi!</h2><p>Klik tombol di bawah ini untuk mengaktifkan akun Anda (Berlaku 24 Jam):</p><br><a href="${host}/?activation_token=${token}" style="background-color:#2563eb; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">Aktifkan Akun Saya</a></div>`;
     } else if (purpose === 'reset') {
         subject = "Reset Password Orland Management";
-        html = `<div style="font-family:sans-serif; padding:20px; color:#333;"><h2>Reset Password</h2><p>Link ini berlaku 30 Menit.</p><br><a href="${host}/?reset_token=${token}" style="background-color:#ef4444; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">Reset Password</a></div>`;
+        html = `<div style="font-family:sans-serif; padding:20px; color:#333;"><h2>Reset Password</h2><p>Link ini berlaku selama 30 Menit.</p><br><a href="${host}/?reset_token=${token}" style="background-color:#ef4444; color:white; padding:12px 24px; text-decoration:none; border-radius:5px; font-weight:bold; display:inline-block;">Reset Password Sekarang</a></div>`;
     } else {
         subject = "Kode OTP Orland Management";
         html = `<div style="font-family:sans-serif; padding:20px; color:#333;"><h2>Verifikasi Keamanan</h2><p>Berikut kode OTP Anda (Berlaku 3 Menit):</p><h1 style="letter-spacing:5px; color:#2563eb;">${token}</h1></div>`;
     }
 
+    // 1. PRIORITAS UTAMA: Gunakan Resend API jika secret tersedia
+    if (env.RESEND_API_KEY) {
+        try {
+            const resendRes = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    from: 'Orland Management <no-reply@orlandmanagement.com>', 
+                    to: toEmail,
+                    subject: subject,
+                    html: html
+                })
+            });
+            
+            if (resendRes.ok) {
+                return { success: true };
+            } else {
+                // Jika Resend menolak (misal error 403), kita log errornya secara internal
+                const errorText = await resendRes.text();
+                console.error("Resend API Error:", errorText);
+            }
+        } catch (e) {
+            console.error("Resend Fetch Failed:", e);
+        }
+    }
+
+    // 2. FALLBACK: MailChannels (Jika Resend gagal/belum terkonfigurasi)
     try {
         const mcData = {
             personalizations: [{ to: [{ email: toEmail }] }],
@@ -47,6 +77,7 @@ async function sendMail(env, toEmail, token, purpose) {
         return { success: false };
     }
 }
+
 
 function getPortalUrl(role) { return role === 'client' ? 'https://client.orlandmanagement.com' : 'https://talent.orlandmanagement.com'; }
 
