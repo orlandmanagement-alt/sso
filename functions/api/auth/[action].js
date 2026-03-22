@@ -145,21 +145,48 @@ export async function onRequestPost({ request, env, params }) {
             return jsonOk({ status: "ok", role: user.role, redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
         }
 
-        // 4. LOGIN PASSWORD
+               // 4. LOGIN PASSWORD
         if (action === "login-password") {
             const isHuman = await verifyTurnstile(body.turnstile_token, clientIp);
             if(!isHuman) return jsonError("Verifikasi keamanan gagal.");
             const user = await findUser(cleanIdentifier);
             if(!user) return jsonError("Kredensial salah.", 401);
-            if (user.locked_until && user.locked_until > now) return jsonError(`Akun terkunci sementara.`, 429);
+            if (user.locked_until && user.locked_until > now) return jsonError(`Akun terkunci. Coba lagi nanti.`, 429);
             
             const hashInput = await hashData(body.password);
-            if (user.password_hash !== hashInput) return jsonError("Password salah.", 401);
+            if (user.password_hash !== hashInput) {
+                // TAMBAHAN: Logika Brute-force
+                const fails = (user.fail_count || 0) + 1;
+                if (fails >= 5) {
+                    await env.DB.prepare("UPDATE users SET fail_count=?, locked_until=? WHERE id=?").bind(fails, now + 900, user.id).run(); // Lock 15 Menit
+                    return jsonError("Gagal 5x. Akun dikunci selama 15 menit.", 429);
+                }
+                await env.DB.prepare("UPDATE users SET fail_count=? WHERE id=?").bind(fails, user.id).run();
+                return jsonError(`Password salah. (Sisa percobaan: ${5 - fails})`, 401);
+            }
+
             if(user.status === 'pending') return jsonError("Akun belum diaktifkan.", 403);
+            
+            // TAMBAHAN: Reset fail_count jika sukses login
+            await env.DB.prepare("UPDATE users SET fail_count=0, locked_until=NULL WHERE id=?").bind(user.id).run();
             
             const sid = crypto.randomUUID();
             await env.DB.prepare("INSERT INTO sessions (id, user_id, role, created_at, expires_at) VALUES (?,?,?,?,?)").bind(sid, user.id, user.role, now, now + SESSION_EXPIRY).run();
             return jsonOk({ status: "ok", redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
+        }
+        // 5. REQUEST OTP UMUM
+        if (action === "request-otp") {
+            const user = await findUser(cleanIdentifier);
+            if(!user) return jsonError("Akun tidak ditemukan.");
+            const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
+            
+            // TAMBAHAN: Hapus OTP lama agar tidak menumpuk
+            await env.DB.prepare("DELETE FROM otp_requests WHERE identifier=? AND purpose=?").bind(user.email, body.purpose).run();
+            
+            await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), user.email, otp, body.purpose, now + 180).run();
+            await sendMail(env, user.email, otp, body.purpose);
+            
+            return jsonOk({ status: "ok", message: "OTP Terkirim." });
         }
 
         // 5. REQUEST OTP UMUM
@@ -217,12 +244,15 @@ export async function onRequestPost({ request, env, params }) {
             if(!user) return jsonError("Akun tidak ditemukan.");
             const tokenUUID = crypto.randomUUID().replace(/-/g, '');
             
-            // SIMPAN & KIRIM LINK RESET
+            // TAMBAHAN: Hapus link reset lama
+            await env.DB.prepare("DELETE FROM otp_requests WHERE identifier=? AND purpose=?").bind(user.email, 'reset').run();
+            
             await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), user.email, tokenUUID, 'reset', now + 1800).run();
             await sendMail(env, user.email, tokenUUID, 'reset');
             
             return jsonOk({ status: "ok", message: "Link reset terkirim." });
         }
+
 
         // 10. SUBMIT NEW PASSWORD
         if (action === "reset-password") {
@@ -231,8 +261,14 @@ export async function onRequestPost({ request, env, params }) {
             const hashedPw = await hashData(body.new_password);
             await env.DB.prepare("UPDATE users SET password_hash=? WHERE email=?").bind(hashedPw, tokenRow.identifier).run();
             await env.DB.prepare("DELETE FROM otp_requests WHERE id=?").bind(tokenRow.id).run();
+            
+            // TAMBAHAN: Hapus semua sesi user ini (Logout dari semua perangkat)
+            const user = await findUser(tokenRow.identifier);
+            if (user) await env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(user.id).run();
+
             return jsonOk({ status: "ok", message: "Password berhasil diubah." });
         }
+
 
         // 11. GOOGLE LOGIN
         if (action === "google-login") {

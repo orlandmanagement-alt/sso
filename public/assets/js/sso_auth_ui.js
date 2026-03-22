@@ -44,18 +44,56 @@ window.switchMode = function(mode) {
         if(mc) mc.classList.remove('flex-row-reverse'); if(bp) bp.classList.remove('reverse');
         if(pReg) pReg.classList.add('hidden'); if(pLogin) pLogin.classList.remove('hidden'); window.showView('view-login');
     }
+    
+    // Opsional: Bersihkan semua form input saat switch mode
+document.querySelectorAll('form').forEach(form => form.reset());
+window.resetTurnstile(); // Reset captcha
+
 }
 
 window.renderTurnstileWidgets = function() { if (!window.turnstile) return; ['turnstile-login', 'turnstile-register'].forEach(id => { const el = document.getElementById(id); if (el && !el.hasChildNodes()) window.turnstile.render(el, { sitekey: TURNSTILE_SITE_KEY, theme: 'light' }); }); }
 window.resetTurnstile = function() { if (window.turnstile) window.turnstile.reset(); }
 
-async function sendApi(action, payload) { try { const res = await fetch(`/api/auth/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); return await res.json(); } catch(e) { return { status: 'error', message: 'Gagal terhubung ke server.' }; } }
+async function sendApi(action, payload) { 
+    try { 
+        const res = await fetch(`/api/auth/${action}`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(payload) 
+        }); 
+        
+        // Cek apakah response benar-benar JSON sebelum di-parse
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            return await res.json();
+        } else {
+            return { status: 'error', message: 'Terjadi kesalahan sistem. (Server Error)' };
+        }
+    } catch(e) { 
+        return { status: 'error', message: 'Koneksi terputus. Periksa jaringan Anda.' }; 
+    } 
+}
+
 
 function startOtpTimer() {
     clearInterval(otpInterval); let timeLeft = 180; const timerEl = document.getElementById('otp-timer'), resendBtn = document.getElementById('btn-resend-otp');
     if(timerEl && resendBtn) {
         timerEl.parentElement.classList.remove('hidden'); resendBtn.classList.add('hidden'); timerEl.innerText = "03:00";
-        otpInterval = setInterval(() => { timeLeft--; const m = Math.floor(timeLeft/60), s = (timeLeft%60).toString().padStart(2,'0'); timerEl.innerText = `${m}:${s}`; if(timeLeft<=0) { clearInterval(otpInterval); timerEl.parentElement.classList.add('hidden'); resendBtn.classList.remove('hidden'); } }, 1000);
+                otpInterval = setInterval(() => { 
+            timeLeft--; 
+            // Perbaikan padding detik dan menit
+            const m = Math.floor(timeLeft/60).toString().padStart(2, '0');
+            const s = (timeLeft%60).toString().padStart(2,'0'); 
+            
+            timerEl.innerText = `${m}:${s}`; 
+            
+            if(timeLeft<=0) { 
+                clearInterval(otpInterval); 
+                timerEl.parentElement.classList.add('hidden'); 
+                resendBtn.classList.remove('hidden'); 
+            } 
+        }, 1000);
+
     }
 }
 
@@ -166,7 +204,15 @@ window.processSocialRegistration = async function() {
     const roleEl = document.querySelector('input[name="soc-role"]:checked');
     if(!roleEl) return window.showToast("Pilih peran Anda terlebih dahulu.", "error");
     const urlParams = new URLSearchParams(window.location.search);
-    const payload = { role: roleEl.value, email: urlParams.get('email'), name: urlParams.get('name'), provider: 'google', social_id: urlParams.get('social_id') };
+    // Tambahkan fallback jika urlParams gagal mengambil
+const payload = { 
+    role: roleEl.value, 
+    email: urlParams.get('email') || '', 
+    name: urlParams.get('name') || '', 
+    provider: 'google', 
+    social_id: urlParams.get('social_id') || 'oauth2_user' 
+};
+
     window.showToast("Menyiapkan Ruang Kerja...", "info");
     const res = await sendApi('social-complete', payload);
     if(res.status === 'ok') { window.showToast("Sukses! Membuka Portal...", "success"); setTimeout(() => window.location.href = res.redirect_url, 1000); } else window.showToast(res.message, "error");
