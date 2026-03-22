@@ -145,7 +145,7 @@ export async function onRequestPost({ request, env, params }) {
             return jsonOk({ status: "ok", role: user.role, redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
         }
 
-               // 4. LOGIN PASSWORD
+                    // 4. LOGIN PASSWORD
         if (action === "login-password") {
             const isHuman = await verifyTurnstile(body.turnstile_token, clientIp);
             if(!isHuman) return jsonError("Verifikasi keamanan gagal.");
@@ -155,25 +155,31 @@ export async function onRequestPost({ request, env, params }) {
             
             const hashInput = await hashData(body.password);
             if (user.password_hash !== hashInput) {
-                // TAMBAHAN: Logika Brute-force
                 const fails = (user.fail_count || 0) + 1;
                 if (fails >= 5) {
-                    await env.DB.prepare("UPDATE users SET fail_count=?, locked_until=? WHERE id=?").bind(fails, now + 900, user.id).run(); // Lock 15 Menit
-                    return jsonError("Gagal 5x. Akun dikunci selama 15 menit.", 429);
+                    await env.DB.prepare("UPDATE users SET fail_count=?, locked_until=? WHERE id=?").bind(fails, now + 900, user.id).run();
+                    return jsonError("Gagal 5x. Akun dikunci 15 menit.", 429);
                 }
                 await env.DB.prepare("UPDATE users SET fail_count=? WHERE id=?").bind(fails, user.id).run();
                 return jsonError(`Password salah. (Sisa percobaan: ${5 - fails})`, 401);
             }
 
-            if(user.status === 'pending') return jsonError("Akun belum diaktifkan.", 403);
+            // PERBAIKAN: Jika masih pending, otomatis kirim ulang link aktivasi baru ke emailnya!
+            if(user.status === 'pending') {
+                const tokenUUID = crypto.randomUUID().replace(/-/g, '');
+                await env.DB.prepare("DELETE FROM otp_requests WHERE identifier=? AND purpose=?").bind(user.email, 'activation').run();
+                await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), user.email, tokenUUID, 'activation', now + 86400).run();
+                await sendMail(env, user.email, tokenUUID, 'activation');
+                
+                return jsonError("Akun belum aktif! Link aktivasi baru telah dikirim ke email Anda.", 403);
+            }
             
-            // TAMBAHAN: Reset fail_count jika sukses login
             await env.DB.prepare("UPDATE users SET fail_count=0, locked_until=NULL WHERE id=?").bind(user.id).run();
-            
             const sid = crypto.randomUUID();
             await env.DB.prepare("INSERT INTO sessions (id, user_id, role, created_at, expires_at) VALUES (?,?,?,?,?)").bind(sid, user.id, user.role, now, now + SESSION_EXPIRY).run();
             return jsonOk({ status: "ok", redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
         }
+
         // 5. REQUEST OTP UMUM
         if (action === "request-otp") {
             const user = await findUser(cleanIdentifier);
