@@ -180,7 +180,7 @@ export async function onRequestPost({ request, env, params }) {
             return jsonOk({ status: "ok", redirect_url: getPortalUrl(user.role) }, makeSessionCookie(sid));
         }
 
-        // 5. REQUEST OTP UMUM
+       // 5. REQUEST OTP UMUM
         if (action === "request-otp") {
             const user = await findUser(cleanIdentifier);
             if(!user) return jsonError("Akun tidak ditemukan.");
@@ -194,20 +194,7 @@ export async function onRequestPost({ request, env, params }) {
             
             return jsonOk({ status: "ok", message: "OTP Terkirim." });
         }
-
-        // 5. REQUEST OTP UMUM
-        if (action === "request-otp") {
-            const user = await findUser(cleanIdentifier);
-            if(!user) return jsonError("Akun tidak ditemukan.");
-            const otp = Math.floor(100000 + Math.random() * 900000).toString(); 
-            
-            // SIMPAN & KIRIM EMAIL OTP
-            await env.DB.prepare("INSERT INTO otp_requests (id, identifier, code, purpose, expires_at) VALUES (?,?,?,?,?)").bind(crypto.randomUUID(), user.email, otp, body.purpose, now + 180).run();
-            await sendMail(env, user.email, otp, body.purpose);
-            
-            return jsonOk({ status: "ok", message: "OTP Terkirim." });
-        }
-
+        
         // 6. LOGIN OTP & SETUP PIN
         if (action === "login-otp" || action === "setup-pin") {
             const user = await findUser(cleanIdentifier);
