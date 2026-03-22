@@ -222,11 +222,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(window.renderTurnstileWidgets, 500); 
     const urlParams = new URLSearchParams(window.location.search);
     
-    if (urlParams.get('activation_token')) {
+        if (urlParams.get('activation_token')) {
         window.showToast("Memverifikasi Aktivasi...", "info");
         const res = await sendApi('verify-activation', { token: urlParams.get('activation_token') });
-        if(res.status === 'ok') { doRedirectCountdown(res.role, "Aktivasi Berhasil!"); window.history.replaceState({}, document.title, window.location.pathname); return; } else { window.showToast(res.message, "error"); window.history.replaceState({}, document.title, window.location.pathname); }
+        
+        if(res.status === 'ok') { 
+            doRedirectCountdown(res.role, "Aktivasi Berhasil!"); 
+            window.history.replaceState({}, document.title, window.location.pathname); 
+            return; 
+        } else { 
+            // 💡 TAMBAHAN: Tampilkan error mentah dari server agar kita tahu persis penyakitnya!
+            alert("GAGAL AKTIVASI: " + res.message); 
+            window.showToast(res.message, "error"); 
+            window.history.replaceState({}, document.title, window.location.pathname); 
+        }
     }
+
     
     if (urlParams.get('reset_token')) {
         document.getElementById('reset-token-hidden').value = urlParams.get('reset_token'); window.showView('view-reset-password'); window.history.replaceState({}, document.title, window.location.pathname); return;
